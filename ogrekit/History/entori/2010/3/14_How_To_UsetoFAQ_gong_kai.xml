@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<content collectionGUID="B38F3089-D604-455E-A512-2D2D1B547862">
+  <lastEdited clientType="local-build-20120811" date="2012-08-10 16:11:54 +0000"/>
+  <textBox id="generic-body-attributes" dynamic="no" visible="yes">
+    <richText>	&#x2022;	 &lt;a href="perma://BLPageReference/09052A57-DF81-4567-935A-4920513E9917"&gt;HowToUse&lt;/a&gt;&#x3068;&lt;a href="perma://BLPageReference/A98E78D7-D609-4EDC-B83E-F08FA6706974"&gt;FAQ&lt;/a&gt;&#x3092;&#x516C;&#x958B;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;</richText>
+  </textBox>
+  <textBox id="generic-title-attributes" dynamic="no" visible="yes">
+    <richText>&lt;b&gt;How To Use&#x3068;FAQ&#x516C;&#x958B;&lt;/b&gt;</richText>
+  </textBox>
+  <textBox id="generic-datefield-attributes" dynamic="no" visible="yes">
+    <richText>&lt;b&gt;2010/03/14&lt;/b&gt;</richText>
+  </textBox>
+</content>
