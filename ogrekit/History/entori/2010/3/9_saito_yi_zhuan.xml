@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <content collectionGUID="B38F3089-D604-455E-A512-2D2D1B547862">
-  <lastEdited clientType="local-build-20120811" date="2012-08-10 16:11:54 +0000"/>
+  <lastEdited clientType="local-build-20120811" date="2012-08-10 16:28:48 +0000"/>
   <textBox id="generic-body-attributes" dynamic="no" visible="yes">
     <richText>	&#x2022;	 &#x30B5;&#x30A4;&#x30C8;&#x3092;MobileMe&#x306B;&#x79FB;&#x8EE2;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;&#xD;	&#x2022;	 HowToUse&#x3068;FAQ&#x306F;&#x73FE;&#x5728;&#x8A18;&#x8FF0;&#x4E2D;&#x3067;&#x3059;&#x3002;</richText>
   </textBox>
