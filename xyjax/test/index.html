@@ -2,8 +2,9 @@
 <html>
 <head>
 <title>MathJax Test Page</title>
-<!-- Copyright (c) 2009-2011 Design Science, Inc. -->
+<!-- Copyright (c) 2009-2012 Design Science, Inc. -->
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
 <script type="text/x-mathjax-config">
 //
@@ -14,13 +15,12 @@
 //
   MathJax.HTML.Cookie.Set("menu",{});
   MathJax.Hub.Config({
-    extensions: ["tex2jax.js", "fp.js"],
+    extensions: ["tex2jax.js"],
     jax: ["input/TeX","output/HTML-CSS"],
     "HTML-CSS": {
       availableFonts:[],
       styles: {".MathJax_Preview": {visibility: "hidden"}}
-    },
-    TeX: {extensions: ["xypic.js"]}
+    }
   });
   MathJax.Hub.Register.StartupHook("HTML-CSS Jax Ready",function () {
     var FONT = MathJax.OutputJax["HTML-CSS"].Font;
@@ -63,7 +63,7 @@ MathJax.Hub.Register.StartupHook("End",function () {
 });
 
 </script>
-<script type="text/javascript" src="../unpacked/MathJax.js"></script>
+<script type="text/javascript" src="../MathJax.js"></script>
 
 <style>
 .warning {

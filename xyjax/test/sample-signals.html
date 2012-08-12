@@ -2,8 +2,9 @@
 <html>
 <head>
 <title>MathJax Signals Test Page</title>
-<!-- Copyright (c) 2010-2011 Design Science, Inc. -->
+<!-- Copyright (c) 2010-2012 Design Science, Inc. -->
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
 <!--
  | This example shows how to use MathJax's signal mechanism to find out 
@@ -17,10 +18,10 @@
   //  Configure MathJax
   //
   MathJax.Hub.Config({
-    extensions: ["tex2jax.js","TeX/noUndefined.js", "fp.js"],
+    extensions: ["tex2jax.js","TeX/noUndefined.js"],
     jax: ["input/TeX","output/HTML-CSS"],
     tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]},
-    TeX: {extensions: ["xypic.js", "AMSmath.js","AMSsymbols.js"]}
+    TeX: {extensions: ["AMSmath.js","AMSsymbols.js"]}
   });
   //
   //  Display messages when these files are loaded
@@ -63,7 +64,7 @@
   MathJax.Hub.Queue(function () {Message("*** MathJax is done ***")});
 
 </script>
-<script type="text/javascript" src="../unpacked/MathJax.js"></script>
+<script type="text/javascript" src="../MathJax.js"></script>
 
 <style>
   .output {

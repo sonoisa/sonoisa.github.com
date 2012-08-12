@@ -44,7 +44,7 @@ DAMAGE.
 <!--}}}-->
 
 <!--PRE-HEAD-END-->
-<title> XyJax = MathJax + Xy-pic - version 0.1 </title>
+<title> XyJax - = Xy-pic extension for MathJax </title>
 <style id="styleArea" type="text/css">
 #saveTest {display:none;}
 #messageArea {display:none;}
@@ -829,22 +829,23 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="HowToInstall" creator="isao" modifier="isao" created="201108111428" modified="201208101644" changecount="22">
-<pre>@@THIS INSTALL INSTRUCTION IS TENTATIVE.@@
-@@I'm trying to separate XyJax package from the original MathJax's code.@@
-
+<div title="HowToInstall" creator="isao" modifier="isao" created="201108111428" modified="201208120557" changecount="37">
+<pre># Download MathJax source code.
+** Go to the MathJax download site: http://www.mathjax.org/download/
+** Download MathJax source code (ver. &gt;= 2.0).
+** Extract the MathJax source code to a directory (referred to as [MathJax dir]).
 # Download XyJax's source code.
-** go to the [[download site|https://github.com/sonoisa/XyJax]].
-** click the Downloads button on the upper right side, and click Download zip (or tar.gz) button. 
-# Extract the downloaded zip (or tar.gz) file.
-# Open the extracted folder.
-** you can see the following files/directories (selected).
-*** test: samples 
-*** fonts: font images
-*** unpacked: XyJax's and MathJax's source code.
-*** xyjax.html: published as http://sonoisa.github.com/xyjax/xyjax.html
-# Open test/sample-xyjax.html with Firefox/Safari/Chrome.
-** you can see so-called commutative diagram, if XyJax works.
+** Go to the XyJax download site: https://github.com/sonoisa/XyJax
+** Click the Downloads button on the upper right side, and click Download zip (or tar.gz) button.
+** Extract the downloaded zip or tar.gz file to a directory (referred to as [XyJax dir]).
+# Move the XyJax files into the MathJax directory.
+** [XyJax dir]/extensions/fp.js &amp;rarr; [MathJax dir]/extensions/fp.js
+** [XyJax dir]/extensions/TeX/xypic.js &amp;rarr; [MathJax dir]/extensions/TeX/xypic.js
+** [XyJax dir]/test/sample-xyjax.html &amp;rarr; [MathJax dir]/test/sample-xyjax.html
+# Open [MathJax dir]/test/sample-xyjax.html with Firefox/Safari/Chrome.
+** You can see so-called commutative diagram, if XyJax works.
+# Install MathJax on your own server using the source code you created in step 3.
+** Follow the local installation instructions: http://www.mathjax.org/docs/2.0/installation.html
 # Use XyJax on your own site.
 ** like the configuration of the test/sample-xy.jax (and the following code), load unpacked/MathJax.js and fp.js, xypic.js within pages on your site.
 
@@ -865,8 +866,7 @@ Source code:
 &lt;script type=&quot;text/javascript&quot; src=&quot;../unpacked/MathJax.js&quot;&gt;&lt;/script&gt;
 &lt;!--                                   ^^^^^^^^IMPORTANT! in the unpacked folder. --&gt;
 }}}
-
-ref. http://www.mathjax.org/docs/1.1/installation.html</pre>
+</pre>
 </div>
 <div title="Intersection" creator="isao" modifier="isao" created="201108071136" modified="201108271153" tags="Sample" changecount="27">
 <pre>\[
@@ -1177,7 +1177,7 @@ Source Code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="PluginMathJax" modifier="isao" created="201009232141" modified="201109041249" tags="systemConfig" changecount="34" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
+<div title="PluginMathJax" modifier="isao" created="201009232141" modified="201208120548" tags="systemConfig" changecount="35" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
 <pre>/***
 |''Name''|PluginMathJax|
 |''Description''|Displays TeX math using MathJax|
@@ -1230,7 +1230,7 @@ if(!version.extensions.PluginMathJax) {
             mjscript.type = &quot;text/javascript&quot;;
             
             // ***** Use the location of your MathJax! ***** :
-            mjscript.src = &quot;unpacked/MathJax.js?config=TeX-AMS_HTML&quot;;
+            mjscript.src = &quot;MathJax.js?config=TeX-AMS_HTML&quot;;
             
             var mjconfig = 'MathJax.Hub.Config({' +
             'jax: [&quot;input/TeX&quot;,&quot;output/HTML-CSS&quot;],' +
@@ -1617,11 +1617,11 @@ Source code:
 <div title="Samples" creator="isao" modifier="isao" created="201107181459" modified="201108060743" changecount="62">
 <pre>&lt;&lt;list filter &quot;[tag[Sample]]&quot;&gt;&gt;</pre>
 </div>
-<div title="SiteSubtitle" creator="isao" modifier="isao" created="201105211015" modified="201108061800" changecount="3">
-<pre>version 0.1</pre>
+<div title="SiteSubtitle" creator="isao" modifier="isao" created="201105211015" modified="201208120558" changecount="6">
+<pre>= Xy-pic extension for MathJax</pre>
 </div>
-<div title="SiteTitle" creator="isao" modifier="isao" created="201105211015" modified="201108061808" changecount="3">
-<pre>XyJax = MathJax + Xy-pic</pre>
+<div title="SiteTitle" creator="isao" modifier="isao" created="201105211015" modified="201208120558" changecount="4">
+<pre>XyJax</pre>
 </div>
 <div title="StyleSheet" creator="isao" modifier="isao" created="201105211203" modified="201105211219" changecount="8">
 <pre>body {font-size:0.9em; font-family:arial,helvetica; margin:0; padding:0;}

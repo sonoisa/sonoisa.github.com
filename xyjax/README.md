@@ -1,47 +1,52 @@
-# XyJax
+# MathJax
 
-## XyJax = MathJax + Xy-pic
+## Beautiful math in all browsers
 
-XyJax is a almost Xy-pic compatible language extension for MathJax.
+MathJax is an open-source JavaScript display engine for LaTeX, MathML, and
+AsciiMath notation that works in all modern browsers.  It was designed with
+the goal of consolidating the recent advances in web technologies into a
+single, definitive, math-on-the-web platform supporting the major browsers
+and operating systems.  It requires no setup on the part of the user (no
+plugins to download or software to install), so the page author can write
+web documents that include mathematics and be confident that users will be
+able to view it naturally and easily.  Simply include MathJax and some
+mathematics in a web page, and MathJax does the rest.
 
-This extension enable us to draw various graphs and diagrams.
+Some of the main features of MathJax include:
 
-See http://homepage.mac.com/oasis/xyjax.html for more details. And origins
+- High-quality display of LaTeX, MathML, and AsciiMath notation in HTML pages
 
-- MathJax: http://www.mathjax.org/ (Mother)
-- Xy-pic: http://www.tug.org/applications/Xy-pic/ (Father)
+- Supported in most browsers with no plug-ins, extra fonts, or special
+  setup for the reader
 
-But, this software is under development, so this release is alpha-quality (often buggy).
+- Easy for authors, flexible for publishers, extensible for developers
+
+- Supports math accessibility, cut-and-paste interoperability, and other
+  advanced functionality
+
+- Powerful API for integration with other web applications
+
+See <http://www.mathjax.org/> for additional details.
 
 
 ## Installation and Usage
 
-THIS INSTALL INSTRUCTION IS TENTATIVE.
+The MathJax installation and usage documentation is available in the
+`docs/html` directory of the MathJax distribution (see
+`docs/html/index.html` for the starting point).  The documents are also
+available on the MathJax web site on line at <http://www.mathjax.org/resources/docs/>.
 
-I'm trying to separate XyJax package from the original MathJax's code.
 
-1. Download XyJax's source code.
- + go to the download site (this page).
- + click the Downloads button on the upper right side, and click Download zip (or tar.gz) button.
-2. Extract the downloaded zip (or tar.gz) file.
-3. Open the extracted folder.
- + you can see the following files/directories (selected).
-  + test: samples
-  + fonts: font images
-  + unpacked: XyJax's and MathJax's source code.
-  + xyjax.html: published as http://homepage.mac.com/oasis/xyjax.html
-4. Open test/sample-xyjax.html with Firefox/Safari/Chrome.
- + you can see so-called commutative diagram, if XyJax works.
-5. Use XyJax on your own site.
- + like the configuration of the test/sample-xy.jax, load unpacked/MathJax.js and fp.js, xypic.js within pages on your site.
+## Community
 
-## Limitation
+The main MathJax website is <http://www.mathjax.org>, and it includes
+announcements and other important information.  MathJax is maintained and
+distributed on GitHub at <http://github.com/mathjax/MathJax>.  A user forum
+for asking questions and getting assistance is hosted at Google, and the
+bug tracker is hosted at GitHub:
 
-- Supported Browsers: Firefox, Safari, Chrome, Opera, Internet Explorer 9 (IE9 Standards Mode only)
-- Unsupported Browsers: Internet Explorer 8 or lower, etc...
+Bug tracker:         <https://github.com/mathjax/MathJax/issues>  
+MathJax-Users Group: <http://groups.google.com/group/mathjax-users>
 
-## Contact
-
-If you have any questions about XyJax, please let me know.
-
-- e-mail: Isao Sonobe <sonoisa@gmail.com>
+Before reporting a bug, please check that it has not already been reported.
+Also, please use the bug tracker for reporting bugs rather than the help forum.
