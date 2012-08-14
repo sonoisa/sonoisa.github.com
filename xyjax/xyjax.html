@@ -1801,57 +1801,62 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201109040802" changecount="27">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201208141239" changecount="38">
 <pre>* general
-** combine XyJax with [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]]
-** support VML
-** find and fix bugs (mainly layout problems)
-** refactoring
-** performance tuning
-** implement syntax/semantics
-*** evaluate user-defined macros
+** design Xy-pic domain model.
+** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
+** implement evaluator for the user-defined macros.
 
-* implement kernel language
-** --positions-- (done)
-** objects
-*** TeX box
-*** composite object
-*** xybox
-*** restore original reference point
-*** hidden/invisible object
-*** use shape
-*** define shape
-** --decorations-- (done)
-*** limited: TeX commands, xyverbose, xytracing, xyquiet, xycompile, xycompileto does not work.
+* Implement the kernel
+** --Positions-- (@@almost done@@)
+*** todo: implement vertical offset to math axis.
+** Objects (@@partially done@@)
+*** todo: implements
+**** TeX box
+**** wrap up box
+**** Composite object box
+**** xybox
+**** Restore original reference point
+**** Hidden and Invisible object
+**** Use shape
+**** Define shape
+** --Decorations-- (@@done@@)
+*** @@NOTE@@: TeX commands, xyverbose, xytracing, xyquiet, xycompile, xycompileto does not work.
 
-* implement kernel library
-** directionals
-*** constructed tips
-** --circle segments-- (done)
-** text
+* Implement kernel object library
+** Directionals
+*** --Plain connectors-- (@@done@@)
+*** --Plain tips-- (@@done@@)
+*** Constructed tips
+** --Circle segments-- (@@done@@)
+** Text
 
-* implement extensions
-** curves
-*** curve-options
-** circles/ellipses
-** quadratic splines
-** frames/brackets
-** line styles
-** rotate/scale
-** color
-** import graphics
+* Implement extensions
+** Curve and Spline extension
+*** --Curved connections-- (@@almost done@@)
+**** todo: implement curve-options
+**** fix wrong layout bug: intersection of lines/curves
+*** Circles and Ellipses
+*** Quadratic splines
+** Frames and Bracket extension
+*** Frames
+*** Brackets
+*** Filled regions
+*** Framing as object modifier
+** Line style extension
+** Rotate and Scale extension
+** Color extension
+** Import graphics extension
 
-* implement features
-** ''--paths--'' (done)
-** ''arrows''
-** ''xy-matrices''
-** two-cells
-** xy-graphs
-** (polygons)
-** (lattice/web)
-** (circles/ellipses/arcs)
-** (knots/links)
-** smart path option
+* Implement features
+** Arrow and Path feature
+*** --Paths-- (@@done@@)
+*** Arrows
+** Two-cell feature
+** Matrix feature
+*** Xy-matrices
+** Graph feature
+** Knots and Links feature
 </pre>
 </div>
 <div title="Xy-pic" creator="isao" modifier="isao" created="201108071442" modified="201108071442" changecount="2">
