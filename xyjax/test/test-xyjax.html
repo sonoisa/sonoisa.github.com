@@ -2,7 +2,8 @@
 <html>
 <head>
 <title>MathJax Test Page</title>
-<!-- Copyright (c) 2009-2011 Design Science, Inc. -->
+<!-- Copyright (c) 2012 Design Science, Inc. -->
+<!-- Copyright (c) 2011-2012 Isao Sonobe <sonoisa@gmail.com> -->
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 
 <script type="text/x-mathjax-config">
@@ -30,6 +31,26 @@
 
 Xy-picの例$(\begin{xy}(0,0);<1cm,0mm>**@{-} ?>*@{>} ?<>*!/_2mm/{\scriptstyle f}\end{xy})$です。
 Xy-picの例$(\begin{xy}(0,0);<1cm,10mm>**@{} ?>*@3{>}\end{xy})$です。
+
+\[
+\begin{xy}
+(0,0)*[o]{p}; p+<2cm, -1cm>*{c} **@{--}
+*!/-1cm/^@{-}
+\end{xy}
+\]
+
+\[
+\begin{xy}
+(0,0)*[o]{p}; p+<2cm, -1cm>*{c} **@{--}
+*!/-1cm/{2}
+\end{xy}
+\]
+
+\[
+\begin{xy}
+*{+}; p+<2cm,1cm>*{+} **{} ?(1)*@{-} *!/-5pt/^@{-} *^@{-} *!/^-5pt/@{-}
+\end{xy}
+\]
 
 \[
 \begin{xy}
@@ -217,6 +238,18 @@ Xy-picの例$(\begin{xy}(0,0);<1cm,10mm>**@{} ?>*@3{>}\end{xy})$です。
 (15,-6);p+/v a(18) 3em/**@{.} ?>*@3{>},
 (15,-7.5);p+/v a(18) 3em/**@{.} ?>*@3{<},
 (15,-9);p+/v a(18) 3em/**@{.} ?>*@3{|},
+
+
+(20,0);p+/v a(18) 3em/**@{.} ?>*\dir{-},
+(20,-1.5);p+/v a(18) 3em/**@{.} ?>*\dir2{-},
+(20,-3);p+/v a(18) 3em/**@{.} ?>*\dir3{-},
+(20,-4.5);p+/v a(18) 3em/**@{.} ?>*\dir{~},
+(20,-6);p+/v a(18) 3em/**@{.} ?>*\dir2{~},
+(20,-7.5);p+/v a(18) 3em/**@{.} ?>*\dir3{~},
+(20,-9);p+/v a(18) 3em/**@{.} ?>*\dir{.},
+(20,-10.5);p+/v a(18) 3em/**@{.} ?>*\dir2{.},
+(20,-12);p+/v a(18) 3em/**@{.} ?>*\dir3{.},
+
 \end{xy}
 \]
 
@@ -567,6 +600,8 @@ p+<6pc,-.5pc>*{D}="D",
 "8";"7" **@{-} ?>*@{>} ?<>(.5)*!/r.5em/{2},
 \end{xy}
 \]
+<!--
+-->
 
 </p>
 <hr>
