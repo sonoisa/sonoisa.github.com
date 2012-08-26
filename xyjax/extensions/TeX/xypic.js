@@ -6318,7 +6318,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
       modifiers.foreach(function (m) { m.preprocess(subcontext); });
       var objectShape = this.object.toDropShape(subcontext);
-      var objectBoundingBox = objectShape.getBoundingBox();
+      var objectBoundingBox = tmpEnv.c;
       if (objectBoundingBox === undefined) {
         return xypic.Shape.none;
       }
@@ -6564,9 +6564,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       if (c === undefined) {
         return xypic.Shape.none;
       }
+      env.c = xypic.Frame.Point(c.x, c.y);
       
       var t = AST.xypic.thickness;
-      var shape;
+      var shape = xypic.Shape.none;
       switch (this.main) {
         case "":
           return xypic.Shape.none;
@@ -6590,6 +6591,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
                     d:"M0,0 Q" + em2px(-0.25) + ","+em2px(0.023) + " " + em2px(-0.55) + "," + em2px(0.165)
                   });
                 });
+              env.c = xypic.Frame.Circle(c.x, c.y, 0.240);
               break;
             case "3":
 //              var l = Math.sqrt(0.55*0.55+0.165*0.165);
@@ -6612,6 +6614,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
                     d:"M0,0 Q" + em2px(-0.25) + "," + em2px(0.023) + " " + em2px(-0.55) + "," + em2px(0.165)
                   });
                 });
+              env.c = xypic.Frame.Circle(c.x, c.y, 0.325);
               break;
             default:
               if (this.variant === "^") {
@@ -6664,6 +6667,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
                     d:"M0,0 Q" + em2px(0.25) + "," + em2px(0.023) + " " + em2px(0.55) + "," + em2px(0.165)
                   });
                 });
+              env.c = xypic.Frame.Circle(c.x, c.y, 0.240);
               break;
             case "3":
 //              var l = Math.sqrt(0.55*0.55+0.165*0.165);
@@ -6686,6 +6690,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
                     d:"M0,0 Q" + em2px(0.25) + "," + em2px(0.023) + " " + em2px(0.55) + "," + em2px(0.165)
                   });
                 });
+              env.c = xypic.Frame.Circle(c.x, c.y, 0.325);
               break;
             default:
               if (this.variant === "^") {
@@ -6876,6 +6881,64 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
                 });
               break;
           }
+          break;
+        case '*':
+          shape = xypic.Shape.ArrowheadShape(c, 0, 
+            { l:t, r:t, u:t, d:t }, 
+            function (self, svg) {
+              svg.createSVGElement("circle", {
+                cx:0, cy:0, r:em2px(t),
+                fill: "currentColor"
+              });
+            });
+          break;
+        case 'o':
+          shape = xypic.Shape.ArrowheadShape(c, 0, 
+            { l:t, r:t, u:t, d:t }, 
+            function (self, svg) {
+              svg.createSVGElement("circle", {
+                cx:0, cy:0, r:em2px(t)
+              });
+            });
+          break;
+        case '+':
+          var halfLen = AST.xypic.lineElementLength / 2;
+          var halfLenPx = em2px(halfLen);
+          shape = xypic.Shape.ArrowheadShape(c, angle, 
+            { l:halfLen, r:halfLen, u:halfLen, d:halfLen }, 
+            function (self, svg) {
+              svg.createSVGElement("line", {
+                x1:-halfLenPx, y1:0, x2:halfLenPx, y2:0
+              });
+              svg.createSVGElement("line", {
+                x1:0, y1:halfLenPx, x2:0, y2:-halfLenPx
+              });
+            });
+          break;
+        case 'x':
+          var halfLen = AST.xypic.lineElementLength / 2;
+          var halfLenPx = em2px(halfLen);
+          shape = xypic.Shape.ArrowheadShape(c, angle + Math.PI / 4, 
+            { l:halfLen, r:halfLen, u:halfLen, d:halfLen }, 
+            function (self, svg) {
+              svg.createSVGElement("line", {
+                x1:-halfLenPx, y1:0, x2:halfLenPx, y2:0
+              });
+              svg.createSVGElement("line", {
+                x1:0, y1:halfLenPx, x2:0, y2:-halfLenPx
+              });
+            });
+          break;
+        case '/':
+          var halfLen = AST.xypic.lineElementLength / 2;
+          var halfLenPx = em2px(halfLen);
+          shape = xypic.Shape.ArrowheadShape(c, angle - Math.PI / 10, 
+            { l:0, r:0, u:halfLen, d:halfLen }, 
+            function (self, svg) {
+              svg.createSVGElement("line", {
+                x1:0, y1:-halfLenPx, x2:0, y2:halfLenPx
+              });
+            });
           break;
         case '-':
         case '--':
