@@ -622,7 +622,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   // <objectbox> ::= '\cir' <radius> '{' <cir> '}'
-  // <radius> ::= <vector>
+  // <cir_radius> ::= <vector>
   //          | <empty>
   // <cir> ::= <diag> <orient> <diag>
   //       | <empty>
@@ -980,6 +980,30 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     turn: function (orient) {
       return (orient === "^"? AST.Diag.L() : AST.Diag.R());
     }
+  });
+  
+  // <objectbox> ::= '\frm' <frame_radius> '{' <frame_main> '}'
+  // <frame_radius> ::= <vector>
+  //          | <empty>
+  // <frame_main> ::= '.' | '--' | '==' | 'o-' | '-o' | 'oo' | 'ee' | '-,' | '.o' | '-o' | '.e' | '-e' | '-' | '=' | ',' | 'o' | 'e' | <empty>
+  AST.ObjectBox.Frame = AST.ObjectBox.Subclass({
+    Init: function (radius, main) {
+      this.radius = radius;
+      this.main = main;
+    },
+    toString: function () {
+      return "\\frm"+this.radius+"{"+this.main+"}";
+    }
+  });
+  AST.ObjectBox.Frame.Radius = MathJax.Object.Subclass({});
+  AST.ObjectBox.Frame.Radius.Vector = MathJax.Object.Subclass({
+    Init: function (vector) {
+      this.vector = vector;
+    },
+    toString: function () { return this.vector.toString(); }
+  });
+  AST.ObjectBox.Frame.Radius.Default = MathJax.Object.Subclass({
+    toString: function () { return ""; }
   });
   
   // <decor> ::= <command>*
@@ -1571,15 +1595,23 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     // <objectbox> ::= '{' <text> '}'
     //          | '@' <dir>
     //          | '\dir' <dir>
-    //          | '\cir' <radius> '{' <cir> '}'
+    //          | '\cir' <cir_radius> '{' <cir> '}'
+    //          | '\frm' <frame_radius> '{' <frame_main> '}'
     //          | <curve>
+    // <frame_main> ::= ( '-' | '=' | '.' | ',' | 'o' | 'e' )*
+    //          | ( '_' | '^' )? ( '\{' | '\}' | '(' | ')' )
     objectbox: memo(function () {
       return or(
         p.mathText,
         lit("@").andr(p.dir),
         lit("\\dir").andr(p.dir),
-        lit("\\cir").andr(p.radius).andl(flit("{")).and(p.cir).andl(flit("}")).to(function (rc) {
+        lit("\\cir").andr(p.cirRadius).andl(flit("{")).and(p.cir).andl(flit("}")).to(function (rc) {
           return AST.ObjectBox.Cir(rc.head, rc.tail);
+        }),
+        lit("\\frm").andr(p.frameRadius).andl(flit("{")).and(fun(
+            regex(/^(((_|\^)?(\\\{|\\\}|\(|\)))|[\-=oe,\.]*)/)
+          )).andl(flit("}")).to(function (rm) {
+          return AST.ObjectBox.Frame(rm.head, rm.tail);
         }),
         p.curve
       );
@@ -1600,15 +1632,23 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       return AST.ObjectBox.Text(mml.root);
     },
     
-    // <text> ::= /[^{}]*/ ( '{' <text> '}' /[^{}]*/ )*
+    // <text> ::= /[^{}\\]*/ (( '\{' | '\}' | '\' | '{' <text> '}' ) /[^{}\\]*/ )*
     text: memo(function () {
-      return regex(/^[^{}]*/).and(function () {
-        return (elem("{").andr(p.text).andl(felem("}")).and(fun(regex(/^[^{}]*/)))).rep().to(function (xs) {
-          var res = "";
-          xs.foreach(function (x) {
-            res += "{" + x.head + "}" + x.tail;
-          });
-          return res;
+      return regex(/^[^{}\\]*/).and(function () {
+        return (
+          or(
+            regex(/^(\\\{|\\\}|\\)/).to(function (x) {
+              return x;
+            }),
+            elem("{").andr(p.text).andl(felem("}")).to(function (x) {
+              return "{" + x + "}";
+            })
+          ).and(fun(regex(/^[^{}\\]*/)))).rep().to(function (xs) {
+            var res = "";
+            xs.foreach(function (x) {
+              res += x.head + x.tail;
+            });
+            return res;
         })
       }).to(function (x) {
         return x.head + x.tail
@@ -1624,15 +1664,28 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       })
     }),
     
-    // <radius> ::= <vector>
+    // <cir_radius> ::= <vector>
     //          | <empty>
-    radius: memo(function () {
+    cirRadius: memo(function () {
       return or(
         p.vector().to(function (v) {
           return AST.ObjectBox.Cir.Radius.Vector(v);
         }),
         success("default").to(function () {
           return AST.ObjectBox.Cir.Radius.Default();
+        })
+      );
+    }),
+    
+    // <frame_radius> ::= <vector>
+    //          | <empty>
+    frameRadius: memo(function () {
+      return or(
+        p.vector().to(function (v) {
+          return AST.ObjectBox.Frame.Radius.Vector(v);
+        }),
+        success("default").to(function () {
+          return AST.ObjectBox.Frame.Radius.Default();
         })
       );
     }),
@@ -2930,8 +2983,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       memoize(this, "getBoundingBox");
     },
     draw: function (svg) {
-      this.foregroundShape.draw(svg);
       this.backgroundShape.draw(svg);
+      this.foregroundShape.draw(svg);
     },
     getBoundingBox: function () {
       return xypic.Frame.combineRect(this.foregroundShape.getBoundingBox(), this.backgroundShape.getBoundingBox());
@@ -2987,6 +3040,306 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
+  xypic.Shape.RectangleShape = xypic.Shape.Subclass({
+    Init: function (x, y, left, right, up, down, r, isDoubled, isFilled, color, dasharray) {
+      this.x = x;
+      this.y = y;
+      this.left = left;
+      this.right = right;
+      this.up = up;
+      this.down = down;
+      this.r = r;
+      this.isDoubled = isDoubled;
+      this.isFilled = isFilled;
+      this.color = color;
+      this.dasharray = dasharray;
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var def;
+      def = {
+        x:em2px(this.x - this.left), 
+        y:-em2px(this.y + this.up), 
+        width:em2px(this.left + this.right), 
+        height:em2px(this.up + this.down), 
+        rx:em2px(this.r)
+      };
+      if (this.dasharray !== undefined) {
+        def["stroke-dasharray"] = this.dasharray;
+      }
+      svg.createSVGElement("rect", def);
+      if (this.isDoubled) {
+        def = {
+          x:em2px(this.x - this.left + AST.xypic.thickness), 
+          y:-em2px(this.y + this.up - AST.xypic.thickness), 
+          width:em2px(this.left + this.right - 2 * AST.xypic.thickness), 
+          height:em2px(this.up + this.down - 2 * AST.xypic.thickness), 
+          rx:em2px(Math.max(this.r - AST.xypic.thickness, 0))
+        };
+        if (this.dasharray !== undefined) {
+          def["stroke-dasharray"] = this.dasharray;
+        }
+        svg.createSVGElement("rect", def);
+      }
+    },
+    getBoundingBox: function () {
+      return xypic.Frame.Rect(this.x, this.y, { l:this.left, r:this.right, u:this.up, d:this.down });
+    },
+    toString: function () {
+      return "RectangleShape[x:" + this.x + ", y:" + this.y + ", left:" + this.left + ", right:" + this.right + ", up:" + this.up + ", down:" + this.down + ", r:" + this.r + ", isDouble:" + this.isDouble + ", dasharray:" + this.dasharray + "]";
+    }
+  });
+  
+  xypic.Shape.EllipseShape = xypic.Shape.Subclass({
+    Init: function (x, y, rx, ry, isDoubled, isFilled, color, dasharray) {
+      this.x = x;
+      this.y = y;
+      this.rx = rx;
+      this.ry = ry;
+      this.isDoubled = isDoubled;
+      this.isFilled = isFilled;
+      this.color = color;
+      this.dasharray = dasharray;
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var def;
+      def = {
+        cx:em2px(this.x), 
+        cy:-em2px(this.y), 
+        rx:em2px(this.rx), 
+        ry:em2px(this.ry)
+      };
+      if (this.dasharray !== undefined) {
+        def["stroke-dasharray"] = this.dasharray;
+      }
+      svg.createSVGElement("ellipse", def);
+      if (this.isDoubled) {
+        def = {
+          cx:em2px(this.x), 
+          cy:-em2px(this.y), 
+          rx:em2px(Math.max(this.rx - AST.xypic.thickness)), 
+          ry:em2px(Math.max(this.ry - AST.xypic.thickness))
+        };
+        if (this.dasharray !== undefined) {
+          def["stroke-dasharray"] = this.dasharray;
+        }
+        svg.createSVGElement("ellipse", def);
+      }
+    },
+    getBoundingBox: function () {
+      return xypic.Frame.Rect(this.x, this.y, { l:this.rx, r:this.rx, u:this.ry, d:this.ry });
+    },
+    toString: function () {
+      return "EllipseShape[x:" + this.x + ", y:" + this.y + ", rx:" + this.rx + ", ry:" + this.ry + ", isDoubled:" + this.isDoubled + ", dasharray:" + this.dasharray + "]";
+    }
+  });
+  
+  xypic.Shape.BoxShadeShape = xypic.Shape.Subclass({
+    Init: function (x, y, left, right, up, down, depth, color) {
+      this.x = x;
+      this.y = y;
+      this.left = left;
+      this.right = right;
+      this.up = up;
+      this.down = down;
+      this.depth = depth;
+      this.color = color || "currentColor";
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var x = em2px(this.x);
+      var y = em2px(this.y);
+      var l = em2px(this.left);
+      var r = em2px(this.right);
+      var u = em2px(this.up);
+      var d = em2px(this.down);
+      var depth = em2px(this.depth);
+      svg.createSVGElement("path", {
+        d: "M" + (x - l + depth) + "," + (-y + d) + 
+          "L" + (x + r) + "," + (-y + d) + 
+          "L" + (x + r) + "," + (-y - u + depth) + 
+          "L" + (x + r + depth) + "," + (-y - u + depth) + 
+          "L" + (x + r + depth) + "," + (-y + d + depth) + 
+          "L" + (x - l + depth) + "," + (-y + d + depth) + 
+          "Z",
+        fill: this.color
+      });
+    },
+    getBoundingBox: function () {
+      return xypic.Frame.Rect(this.x, this.y, { l:this.left, r:this.right + this.depth, u:this.up, d:this.down + this.depth });
+    },
+    toString: function () {
+      return "RectangleShape[x:" + this.x + ", y:" + this.y + ", left:" + this.left + ", right:" + this.right + ", up:" + this.up + ", down:" + this.down + ", depth:" + this.depth + ", color:" + this.color + "]";
+    }
+  });
+  
+  xypic.Shape.LeftBrace = xypic.Shape.Subclass({
+    Init: function (x, y, up, down, degree) {
+      this.x = x;
+      this.y = y;
+      this.up = up;
+      this.down = down;
+      this.degree = degree;
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var down = Math.max(0.759375 + 0.660375, this.down) - 0.660375;
+      var up = - Math.max(0.759375 + 0.660375, this.up) + 0.660375;
+      
+      var d;
+      d = "M" + em2px(-0.0675) + " " + em2px(down) + 
+        "T" + em2px(-0.068625) + " " + em2px(0.07875 + down) + 
+        "Q" + em2px(-0.068625) + " " + em2px(0.190125 + down) + 
+        " " + em2px(-0.0585) + " " + em2px(0.250875 + down) + 
+        "T" + em2px(-0.01125) + " " + em2px(0.387 + down) + 
+        "Q" + em2px(0.07425) + " " + em2px(0.55575 + down) + 
+        " " + em2px(0.2475) + " " + em2px(0.6525 + down) + 
+        "L" + em2px(0.262125) + " " + em2px(0.660375 + down) + 
+        "L" + em2px(0.3015) + " " + em2px(0.660375 + down) + 
+        "L" + em2px(0.30825) + " " + em2px(0.653625 + down) + 
+        "V" + em2px(0.622125 + down) + 
+        "Q" + em2px(0.30825) + " " + em2px(0.60975 + down) + 
+        " " + em2px(0.2925) + " " + em2px(0.60075 + down) + 
+        "Q" + em2px(0.205875) + " " + em2px(0.541125 + down) + 
+        " " + em2px(0.149625) + " " + em2px(0.44775 + down) + 
+        "T" + em2px(0.07425) + " " + em2px(0.239625 + down) + 
+        "Q" + em2px(0.07425) + " " + em2px(0.2385 + down) + 
+        " " + em2px(0.073125) + " " + em2px(0.235125 + down) + 
+        "Q" + em2px(0.068625) + " " + em2px(0.203625 + down) + 
+        " " + em2px(0.0675) + " " + em2px(0.041625 + down) + 
+        "L" + em2px(0.0675) + " " + em2px(0.75825) + 
+        "Q" + em2px(0.0675) + " " + em2px(0.496125) + 
+        " " + em2px(0.066375) + " " + em2px(0.486) + 
+        "Q" + em2px(0.05625) + " " + em2px(0.336375) + 
+        " " + em2px(-0.021375) + " " + em2px(0.212625) + 
+        "T" + em2px(-0.226125) + " " + em2px(0.010125) + 
+        "L" + em2px(-0.241875) + " 0" + 
+        "L" + em2px(-0.226125) + " " + em2px(-0.010125) + 
+        "Q" + em2px(-0.106875) + " " + em2px(-0.084375) + 
+        " " + em2px(-0.025875) + " " + em2px(-0.207) + 
+        "T" + em2px(0.066375) + " " + em2px(-0.486) + 
+        "Q" + em2px(0.0675) + " " + em2px(-0.496125) + 
+        " " + em2px(0.0675) + " " + em2px(-0.75825) + 
+        "L" + em2px(0.0675) + " " + em2px(-0.041625 + up) + 
+        "Q" + em2px(0.068625) + " " + em2px(-0.203625 + up) + 
+        " " + em2px(0.073125) + " " + em2px(-0.235125 + up) + 
+        "Q" + em2px(0.07425) + " " + em2px(-0.2385 + up) + 
+        " " + em2px(0.07425) + " " + em2px(-0.239625 + up) + 
+        "Q" + em2px(0.093375) + " " + em2px(-0.354375 + up) + 
+        " " + em2px(0.149625) + " " + em2px(-0.44775 + up) + 
+        "T" + em2px(0.2925) + " " + em2px(-0.60075 + up) + 
+        "Q" + em2px(0.30825) + " " + em2px(-0.60975 + up) + 
+        " " + em2px(0.30825) + " " + em2px(-0.622125 + up) + 
+        "L" + em2px(0.30825) + " " + em2px(-0.653625 + up) + 
+        "L" + em2px(0.3015) + " " + em2px(-0.660375 + up) + 
+        "L" + em2px(0.262125) + " " + em2px(-0.660375 + up) + 
+        "L" + em2px(0.2475) + " " + em2px(-0.6525 + up) + 
+        "Q" + em2px(0.07425) + " " + em2px(-0.55575 + up) + 
+        " " + em2px(-0.01125) + " " + em2px(-0.387 + up) + 
+        "Q" + em2px(-0.048375) + " " + em2px(-0.311625 + up) + 
+        " " + em2px(-0.0585) + " " + em2px(-0.250875 + up) + 
+        "T" + em2px(-0.068625) + " " + em2px(-0.07875 + up) + 
+        "Q" + em2px(-0.0675) + " " + em2px(up) + 
+        " " + em2px(-0.0675) + " " + em2px(up) + 
+        "L" + em2px(-0.0675) + " " + em2px(-0.759375) + 
+        "V" + em2px(-0.5985) + 
+        "Q" + em2px(-0.0675) + " " + em2px(-0.47925) + 
+        " " + em2px(-0.075375) + " " + em2px(-0.41175) + 
+        "T" + em2px(-0.11475) + " " + em2px(-0.27) + 
+        "Q" + em2px(-0.133875) + " " + em2px(-0.2205) + 
+        " " + em2px(-0.160875) + " " + em2px(-0.17775) + 
+        "T" + em2px(-0.212625) + " " + em2px(-0.106875) + 
+        "T" + em2px(-0.25875) + " " + em2px(-0.06075) + 
+        "T" + em2px(-0.293625) + " " + em2px(-0.0315) + 
+        "T" + em2px(-0.307125) + " " + em2px(-0.02025) + 
+        "Q" + em2px(-0.30825) + " " + em2px(-0.019125) + 
+        " " + em2px(-0.30825) + " 0" + 
+        "T" + em2px(-0.307125) + " " + em2px(0.02025) + 
+        "Q" + em2px(-0.307125) + " " + em2px(0.021375) + 
+        " " + em2px(-0.284625) + " " + em2px(0.03825) + 
+        "T" + em2px(-0.2295) + " " + em2px(0.091125) + 
+        "T" + em2px(-0.162) + " " + em2px(0.176625) + 
+        "T" + em2px(-0.10125) + " " + em2px(0.30825) + 
+        "T" + em2px(-0.068625) + " " + em2px(0.482625) + 
+        "Q" + em2px(-0.0675) + " " + em2px(0.496125) + 
+        " " + em2px(-0.0675) + " " + em2px(0.759375) + 
+        "Z";
+      svg.createSVGElement("path", { d:d, fill:"currentColor", "stroke-width":"0pt", transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")" });
+    },
+    getBoundingBox: function () {
+      return xypic.Frame.Rect(this.x, this.y, { l:0.308, r:0.308, u:Math.max(0.759375 + 0.660375, this.up), d:Math.max(0.759375 + 0.660375, this.down) }).rotate(this.degree * Math.PI / 180);
+    },
+    toString: function () {
+      return "LeftBrace[x:" + this.x + ", y:" + this.y + ", up:" + this.up + ", down:" + this.down + "]";
+    }
+  });
+  
+  xypic.Shape.LeftParenthesis = xypic.Shape.Subclass({
+    Init: function (x, y, height, degree) {
+      this.x = x;
+      this.y = y;
+      this.height = height;
+      this.degree = degree;
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var down = Math.max(0.660375, this.height / 2) - 0.660375;
+      var up = -down;
+      
+      var d;
+      d = "M" + em2px(-0.0675) + " " + em2px(down) + 
+        "T" + em2px(-0.068625) + " " + em2px(0.07875 + down) + 
+        "Q" + em2px(-0.068625) + " " + em2px(0.190125 + down) + 
+        " " + em2px(-0.0585) + " " + em2px(0.250875 + down) + 
+        "T" + em2px(-0.01125) + " " + em2px(0.387 + down) + 
+        "Q" + em2px(0.07425) + " " + em2px(0.55575 + down) + 
+        " " + em2px(0.2475) + " " + em2px(0.6525 + down) + 
+        "L" + em2px(0.262125) + " " + em2px(0.660375 + down) + 
+        "L" + em2px(0.3015) + " " + em2px(0.660375 + down) + 
+        "L" + em2px(0.30825) + " " + em2px(0.653625 + down) + 
+        "V" + em2px(0.622125 + down) + 
+        "Q" + em2px(0.30825) + " " + em2px(0.60975 + down) + 
+        " " + em2px(0.2925) + " " + em2px(0.60075 + down) + 
+        "Q" + em2px(0.205875) + " " + em2px(0.541125 + down) + 
+        " " + em2px(0.149625) + " " + em2px(0.44775 + down) + 
+        "T" + em2px(0.07425) + " " + em2px(0.239625 + down) + 
+        "Q" + em2px(0.07425) + " " + em2px(0.2385 + down) + 
+        " " + em2px(0.073125) + " " + em2px(0.235125 + down) + 
+        "Q" + em2px(0.068625) + " " + em2px(0.203625 + down) + 
+        " " + em2px(0.0675) + " " + em2px(0.041625 + down) + 
+        "L" + em2px(0.0675) + " " + em2px(-0.041625 + up) + 
+        "Q" + em2px(0.068625) + " " + em2px(-0.203625 + up) + 
+        " " + em2px(0.073125) + " " + em2px(-0.235125 + up) + 
+        "Q" + em2px(0.07425) + " " + em2px(-0.2385 + up) + 
+        " " + em2px(0.07425) + " " + em2px(-0.239625 + up) + 
+        "Q" + em2px(0.093375) + " " + em2px(-0.354375 + up) + 
+        " " + em2px(0.149625) + " " + em2px(-0.44775 + up) + 
+        "T" + em2px(0.2925) + " " + em2px(-0.60075 + up) + 
+        "Q" + em2px(0.30825) + " " + em2px(-0.60975 + up) + 
+        " " + em2px(0.30825) + " " + em2px(-0.622125 + up) + 
+        "L" + em2px(0.30825) + " " + em2px(-0.653625 + up) + 
+        "L" + em2px(0.3015) + " " + em2px(-0.660375 + up) + 
+        "L" + em2px(0.262125) + " " + em2px(-0.660375 + up) + 
+        "L" + em2px(0.2475) + " " + em2px(-0.6525 + up) + 
+        "Q" + em2px(0.07425) + " " + em2px(-0.55575 + up) + 
+        " " + em2px(-0.01125) + " " + em2px(-0.387 + up) + 
+        "Q" + em2px(-0.048375) + " " + em2px(-0.311625 + up) + 
+        " " + em2px(-0.0585) + " " + em2px(-0.250875 + up) + 
+        "T" + em2px(-0.068625) + " " + em2px(-0.07875 + up) + 
+        "Q" + em2px(-0.0675) + " " + em2px(up) + 
+        " " + em2px(-0.0675) + " " + em2px(up) + 
+        "Z";
+      svg.createSVGElement("path", { d:d, fill:"currentColor", "stroke-width":"0pt", transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")" });
+    },
+    getBoundingBox: function () {
+      return xypic.Frame.Rect(this.x, this.y, { l:0.0675, r:0.308, u:Math.max(0.660375, this.height / 2), d:Math.max(0.660375, this.height / 2) }).rotate(this.degree * Math.PI / 180);
+    },
+    toString: function () {
+      return "LeftBrace[x:" + this.x + ", y:" + this.y + ", up:" + this.up + ", down:" + this.down + "]";
+    }
+  });
+
   xypic.Shape.TextShape = xypic.Shape.Subclass({
     Init: function (c, math, svgForTestLayout) {
       this.c = c;
@@ -7658,13 +8011,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     toConnectShape: function (context) {
       return this.object.toConnectShape(context, this);
-//      var env = context.env;
-//      var modifiers = this.modifiers;
-//      var subcontext = xypic.DrawingContext(xypic.Shape.none, env);
-//      var objectShape = this.object.toConnectShape(subcontext, this);
-//      modifiers.foreach(function (m) { objectShape = m.modifyShape(subcontext, objectShape); });
-//      context.appendShapeToFront(objectShape);
-//      return objectShape;
     },
     boundingBox: function (context) {
       var tmpEnvContext = context.duplicateEnv();
@@ -7755,7 +8101,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       
       return circleShape;
     },
-    toConnectShape: function (context) {
+    toConnectShape: function (context, object) {
       // TODO: 何もしなくてよいかTeXの出力結果を確認する。
       return xypic.Shape.none;
     }
@@ -7879,6 +8225,202 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var fullCircleShape = xypic.Shape.FullCircleShape(x, y, r);
       context.appendShapeToFront(fullCircleShape);
       return fullCircleShape;
+    }
+  });
+  
+  AST.ObjectBox.Frame.Augment({
+    toDropShape: function (context) {
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return xypic.Shape.none;
+      }
+      
+      var t = AST.xypic.thickness;
+      var x = c.x;
+      var y = c.y;
+      var left = c.l;
+      var right = c.r;
+      var up = c.u;
+      var down = c.d;
+      var shape = xypic.Shape.none;
+      switch (this.main) {
+        case '--':
+          var dash = 3 * t;
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          break;
+          
+        case '==':
+          var dash = 3 * t;
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, false, undefined, em2px(dash) + " " + em2px(dash));
+          break;
+          
+        case 'o-':
+          var dash = 3 * t;
+          var radius = AST.xypic.lineElementLength;
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          break;
+          
+        case 'oo':
+          var xy = this.radius.xy(context);
+          var r = xy.x;
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, true, false, undefined, undefined);
+          break;
+          
+        case 'ee':
+          var xy = this.radius.xy(context);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, true, false, undefined, undefined);
+          break;
+          
+        case '-,':
+          var depth = this.radius.depth(context);
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.CompositeShape(
+            xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, undefined),
+            xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth, undefined)
+          );
+          break;
+          
+        case '.o':
+          var xy = this.radius.xy(context);
+          var r = xy.x;
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, "1 " + em2px(t));
+          break;
+          
+        case '-o':
+          var dash = 3 * t;
+          var xy = this.radius.xy(context);
+          var r = xy.x;
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          break;
+          
+        case '.e':
+          var xy = this.radius.xy(context);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, "1 " + em2px(t));
+          break;
+          
+        case '-e':
+          var dash = 3 * t;
+          var xy = this.radius.xy(context);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          break;
+          
+        case '-':
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, undefined);
+          break;
+          
+        case '=':
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, false, undefined, undefined);
+          break;
+          
+        case '.':
+          var radius = this.radius.radius(context);
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, "1 " + em2px(t));
+          break;
+          
+        case ',':
+          var depth = this.radius.depth(context);
+          shape = xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth, undefined);
+          break;
+          
+        case 'o':
+          var xy = this.radius.xy(context);
+          var r = xy.x;
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, undefined);
+          break;
+          
+        case 'e':
+          var xy = this.radius.xy(context);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, undefined);
+          break;
+          
+        case '\\{':
+          shape = xypic.Shape.LeftBrace(x - left, y, up, down, 0);
+          break;
+          
+        case '\\}':
+          shape = xypic.Shape.LeftBrace(x + right, y, down, up, 180);
+          break;
+          
+        case '^\\}':
+        case '^\\{':
+          shape = xypic.Shape.LeftBrace(x, y + up, right, left, 270);
+          break;
+          
+        case '_\\{':
+        case '_\\}':
+          shape = xypic.Shape.LeftBrace(x, y - down, left, right, 90);
+          break;
+          
+        case '(':
+          shape = xypic.Shape.LeftParenthesis(x - left, y + (up - down) / 2, up + down, 0);
+          break;
+          
+        case ')':
+          shape = xypic.Shape.LeftParenthesis(x + right, y + (up - down) / 2, up + down, 180);
+          break;
+          
+        case '^(':
+        case '^)':
+          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y + up, left + right, 270);
+          break;
+          
+        case '_(':
+        case '_)':
+          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y - down, left + right, 90);
+          break;
+          
+        default:
+          return xypic.Shape.none;
+      }
+      
+      context.appendShapeToFront(shape);
+      
+      return shape;
+    },
+    toConnectShape: function (context, object) {
+      var env = context.env;
+      var c = env.c;
+      var p = env.p;
+      if (c === undefined || p === undefined) {
+        xypic.Shape.none;
+      }
+      
+      var tmpEnv = env.duplicate();
+      tmpEnv.c = p.combineRect(c);
+      
+      var tmpContext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
+      var shape = object.toDropShape(tmpContext);
+      context.appendShapeToFront(shape);
+      
+      return shape;
+    }
+  });
+  AST.ObjectBox.Frame.Radius.Vector.Augment({
+    radius: function (context) {
+      return this.vector.xy(context).x;
+    },
+    depth: function (context) {
+      return this.vector.xy(context).x;
+    },
+    xy: function (context) {
+      return this.vector.xy(context);
+    }
+  });
+  AST.ObjectBox.Frame.Radius.Default.Augment({
+    radius: function (context) {
+      return 0;
+    },
+    depth: function (context) {
+      return AST.xypic.thickness / 2;
+    },
+    xy: function (context) {
+      var c = context.env.c;
+      return { x:(c.l + c.r) / 2, y:(c.u + c.d) / 2 };
     }
   });
   
