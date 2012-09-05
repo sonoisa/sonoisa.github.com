@@ -824,7 +824,11 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   // <modifier> ::= '[' <shape> ']'
-  // <shape> ::= '.' | 'o' | 'l' | 'r' | 'u' | 'd' | 'c' | <empty>
+  // <shape> ::= '.' 
+  //          | <frame_shape>
+  //          | <alphabets>
+  //          | <empty>
+  // <alphabets> ::= /[a-zA-Z]+/
   AST.Modifier.Shape = MathJax.Object.Subclass({
     Init: function (shape) {
       this.shape = shape;
@@ -837,6 +841,13 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   AST.Modifier.Shape.Rect = MathJax.Object.Subclass({
     toString: function () { return ""; }
   });
+  AST.Modifier.Shape.Alphabets = MathJax.Object.Subclass({
+    Init: function (alphabets) {
+      this.alphabets = alphabets;
+    },
+    toString: function () { return this.alphabets; }
+  });
+  // xypic.ModifierRepositoryに格納されるもの
   AST.Modifier.Shape.Circle = MathJax.Object.Subclass({
     toString: function () { return "o"; }
   });
@@ -854,6 +865,40 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   AST.Modifier.Shape.C = MathJax.Object.Subclass({
     toString: function () { return "c"; }
+  });
+  AST.Modifier.Shape.ChangeColor = MathJax.Object.Subclass({
+    Init: function (colorName) {
+      this.colorName = colorName;
+    },
+    toString: function () { return this.colorName; }
+  });
+  
+  // <frame_shape> ::= 'F' <frame_main> ( ':' ( <frame_radius_vector> | <color_name> ))*
+  AST.Modifier.Shape.Frame = MathJax.Object.Subclass({
+    Init: function (main, options) {
+      this.main = main;
+      this.options = options;
+    },
+    toString: function () {
+      return "F" + this.main + this.options.mkString("");
+    }
+  });
+  AST.Modifier.Shape.Frame.Radius = MathJax.Object.Subclass({
+    Init: function (vector) {
+      this.vector = vector;
+    },
+    toString: function () {
+      return ":" + this.vector;
+    }
+  });
+  // <color_name> ::= /[a-zA-Z][a-zA-Z0-9]*/
+  AST.Modifier.Shape.Frame.Color = MathJax.Object.Subclass({
+    Init: function (colorName) {
+      this.colorName = colorName;
+    },
+    toString: function () {
+      return ":" + this.colorName;
+    }
   });
   
   // <modifier> ::= <nonempty-direction>
@@ -983,9 +1028,12 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   // <objectbox> ::= '\frm' <frame_radius> '{' <frame_main> '}'
-  // <frame_radius> ::= <vector>
+  // <frame_radius> ::= <frame_radius_vector>
   //          | <empty>
-  // <frame_main> ::= '.' | '--' | '==' | 'o-' | '-o' | 'oo' | 'ee' | '-,' | '.o' | '-o' | '.e' | '-e' | '-' | '=' | ',' | 'o' | 'e' | <empty>
+  // <frame_main> ::= ( '-' | '=' | '.' | ',' | 'o' | 'e' | '*' )*
+  //          | ( '_' | '^' )? ( '\{' | '\}' | '(' | ')' )
+  // <frame_radius_vector> ::= '<' <dimen> ',' <dimen> '>'
+  //          |   '<' <dimen> '>'
   AST.ObjectBox.Frame = AST.ObjectBox.Subclass({
     Init: function (radius, main) {
       this.radius = radius;
@@ -1598,8 +1646,6 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     //          | '\cir' <cir_radius> '{' <cir> '}'
     //          | '\frm' <frame_radius> '{' <frame_main> '}'
     //          | <curve>
-    // <frame_main> ::= ( '-' | '=' | '.' | ',' | 'o' | 'e' )*
-    //          | ( '_' | '^' )? ( '\{' | '\}' | '(' | ')' )
     objectbox: memo(function () {
       return or(
         p.mathText,
@@ -1608,9 +1654,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         lit("\\cir").andr(p.cirRadius).andl(flit("{")).and(p.cir).andl(flit("}")).to(function (rc) {
           return AST.ObjectBox.Cir(rc.head, rc.tail);
         }),
-        lit("\\frm").andr(p.frameRadius).andl(flit("{")).and(fun(
-            regex(/^(((_|\^)?(\\\{|\\\}|\(|\)))|[\-=oe,\.]*)/)
-          )).andl(flit("}")).to(function (rm) {
+        lit("\\frm").andr(p.frameRadius).andl(flit("{")).and(p.frameMain).andl(flit("}")).to(function (rm) {
           return AST.ObjectBox.Frame(rm.head, rm.tail);
         }),
         p.curve
@@ -1677,17 +1721,40 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       );
     }),
     
-    // <frame_radius> ::= <vector>
+    // <frame_radius> ::= <frame_radius_vector>
     //          | <empty>
     frameRadius: memo(function () {
       return or(
-        p.vector().to(function (v) {
+        p.frameRadiusVector().to(function (v) {
           return AST.ObjectBox.Frame.Radius.Vector(v);
         }),
         success("default").to(function () {
           return AST.ObjectBox.Frame.Radius.Default();
         })
       );
+    }),
+
+    // <frame_radius_vector> ::= '<' <dimen> ',' <dimen> '>'
+    //          |   '<' <dimen> '>'
+    frameRadiusVector: memo(function () {
+      return or(
+        lit('<').andr(p.dimen).andl(flit(',')).and(p.dimen).andl(flit('>')).to(
+          function (xy) {
+            return AST.Vector.Abs(xy.head, xy.tail);
+          }
+        ),
+        lit('<').andr(p.dimen).andl(flit('>')).to(
+          function (x) {
+            return AST.Vector.Abs(x, x);
+          }
+        )
+      );
+    }),
+    
+    // <frame_main> ::= ( '-' | '=' | '.' | ',' | 'o' | 'e' | '*' )*
+    //          | ( '_' | '^' )? ( '\{' | '\}' | '(' | ')' )
+    frameMain: memo(function () {
+      return regex(/^(((_|\^)?(\\\{|\\\}|\(|\)))|[\-=oe,\.\*]*)/);
     }),
     
     // <cir> ::= <diag> <orient> <diag>
@@ -1857,18 +1924,47 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       );
     }),
     
-    // <shape> ::= '.' | 'o' | 'l' | 'r' | 'u' | 'd' | 'c' | <empty>
+    // <shape> ::= '.' 
+    //          | <frame_shape>
+    //          | <alphabets>
+    //          | <empty>
     shape: memo(function () {
       return or(
         lit(".").to(function () { return AST.Modifier.Shape.Point(); }),
-        lit("o").to(function () { return AST.Modifier.Shape.Circle(); }),
-        lit("l").to(function () { return AST.Modifier.Shape.L(); }),
-        lit("r").to(function () { return AST.Modifier.Shape.R(); }),
-        lit("u").to(function () { return AST.Modifier.Shape.U(); }),
-        lit("d").to(function () { return AST.Modifier.Shape.D(); }),
-        lit("c").to(function () { return AST.Modifier.Shape.C(); }),
+        p.frameShape,
+        p.alphabets().to(function (c) {
+          return AST.Modifier.Shape.Alphabets(c);
+        }),
         success("rect").to(function () { return AST.Modifier.Shape.Rect(); })
       );
+    }),
+    
+    // <frame_shape> ::= 'F' <frame_main> ( ':' ( <frame_radius_vector> | <color_name> ))*
+    frameShape: memo(function () {
+      return lit("F").andr(p.frameMain).and(fun(
+        rep(lit(":").andr(fun(
+          or(
+            p.frameRadiusVector().to(function (v) {
+              return AST.Modifier.Shape.Frame.Radius(v);
+            }),
+            p.colorName().to(function (c) {
+                return AST.Modifier.Shape.Frame.Color(c);
+            })
+          )
+        )))
+      )).to(function (mo) {
+        return AST.Modifier.Shape.Frame(mo.head, mo.tail);
+      });
+    }),
+    
+    // <alphabets> ::= /[a-zA-Z]+/
+    alphabets: memo(function () {
+      return regex(/^([a-zA-Z]+)/);
+    }),
+    
+    // <color_name> ::= /[a-zA-Z][a-zA-Z0-9]*/
+    colorName: memo(function () {
+      return regex(/^([a-zA-Z][a-zA-Z0-9]*)/);
     }),
     
     // <direction> ::= <direction0> <direction1>*
@@ -2315,6 +2411,189 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     reset();
   }
   
+  xypic.ModifierRepository = MathJax.Object.Subclass({
+    Init: function () {
+      this.userModifierMap = {};
+    },
+    get: function (modifierName) {
+      var modifier = xypic.ModifierRepository.embeddedModifierMap[modifierName];
+      if (modifier !== undefined) {
+        return modifier;
+      }
+      return this.userModifierMap[modifierName];
+    },
+    put: function (modifierName, modifier) {
+      if (xypic.ModifierRepository.embeddedModifierMap[shapeName] === undefined) {
+        this.userModifierMap[modifierName] = modifier;
+      }
+    },
+    duplicate: function () {
+      var newRepo = xypic.ModifierRepository();
+      for (var attr in this.userModifierMap) {
+        if (this.userModifierMap.hasOwnProperty(attr)) {
+          newRepo.userModifierMap[attr] = this.userModifierMap[attr];
+        }
+      }
+      return newRepo;
+    }
+  }, {
+    embeddedModifierMap: {
+      "o":AST.Modifier.Shape.Circle(),
+      "l":AST.Modifier.Shape.L(),
+      "r":AST.Modifier.Shape.R(),
+      "u":AST.Modifier.Shape.U(),
+      "d":AST.Modifier.Shape.D(),
+      "c":AST.Modifier.Shape.C(),
+      "aliceblue":AST.Modifier.Shape.ChangeColor("aliceblue"),
+      "antiquewhite":AST.Modifier.Shape.ChangeColor("antiquewhite"),
+      "aqua":AST.Modifier.Shape.ChangeColor("aqua"),
+      "aquamarine":AST.Modifier.Shape.ChangeColor("aquamarine"),
+      "azure":AST.Modifier.Shape.ChangeColor("azure"),
+      "beige":AST.Modifier.Shape.ChangeColor("beige"),
+      "bisque":AST.Modifier.Shape.ChangeColor("bisque"),
+      "black":AST.Modifier.Shape.ChangeColor("black"),
+      "blanchedalmond":AST.Modifier.Shape.ChangeColor("blanchedalmond"),
+      "blue":AST.Modifier.Shape.ChangeColor("blue"),
+      "blueviolet":AST.Modifier.Shape.ChangeColor("blueviolet"),
+      "brown":AST.Modifier.Shape.ChangeColor("brown"),
+      "burlywood":AST.Modifier.Shape.ChangeColor("burlywood"),
+      "cadetblue":AST.Modifier.Shape.ChangeColor("cadetblue"),
+      "chartreuse":AST.Modifier.Shape.ChangeColor("chartreuse"),
+      "chocolate":AST.Modifier.Shape.ChangeColor("chocolate"),
+      "coral":AST.Modifier.Shape.ChangeColor("coral"),
+      "cornflowerblue":AST.Modifier.Shape.ChangeColor("cornflowerblue"),
+      "cornsilk":AST.Modifier.Shape.ChangeColor("cornsilk"),
+      "crimson":AST.Modifier.Shape.ChangeColor("crimson"),
+      "cyan":AST.Modifier.Shape.ChangeColor("cyan"),
+      "darkblue":AST.Modifier.Shape.ChangeColor("darkblue"),
+      "darkcyan":AST.Modifier.Shape.ChangeColor("darkcyan"),
+      "darkgoldenrod":AST.Modifier.Shape.ChangeColor("darkgoldenrod"),
+      "darkgray":AST.Modifier.Shape.ChangeColor("darkgray"),
+      "darkgreen":AST.Modifier.Shape.ChangeColor("darkgreen"),
+      "darkgrey":AST.Modifier.Shape.ChangeColor("darkgrey"),
+      "darkkhaki":AST.Modifier.Shape.ChangeColor("darkkhaki"),
+      "darkmagenta":AST.Modifier.Shape.ChangeColor("darkmagenta"),
+      "darkolivegreen":AST.Modifier.Shape.ChangeColor("darkolivegreen"),
+      "darkorange":AST.Modifier.Shape.ChangeColor("darkorange"),
+      "darkorchid":AST.Modifier.Shape.ChangeColor("darkorchid"),
+      "darkred":AST.Modifier.Shape.ChangeColor("darkred"),
+      "darksalmon":AST.Modifier.Shape.ChangeColor("darksalmon"),
+      "darkseagreen":AST.Modifier.Shape.ChangeColor("darkseagreen"),
+      "darkslateblue":AST.Modifier.Shape.ChangeColor("darkslateblue"),
+      "darkslategray":AST.Modifier.Shape.ChangeColor("darkslategray"),
+      "darkslategrey":AST.Modifier.Shape.ChangeColor("darkslategrey"),
+      "darkturquoise":AST.Modifier.Shape.ChangeColor("darkturquoise"),
+      "darkviolet":AST.Modifier.Shape.ChangeColor("darkviolet"),
+      "deeppink":AST.Modifier.Shape.ChangeColor("deeppink"),
+      "deepskyblue":AST.Modifier.Shape.ChangeColor("deepskyblue"),
+      "dimgray":AST.Modifier.Shape.ChangeColor("dimgray"),
+      "dimgrey":AST.Modifier.Shape.ChangeColor("dimgrey"),
+      "dodgerblue":AST.Modifier.Shape.ChangeColor("dodgerblue"),
+      "firebrick":AST.Modifier.Shape.ChangeColor("firebrick"),
+      "floralwhite":AST.Modifier.Shape.ChangeColor("floralwhite"),
+      "forestgreen":AST.Modifier.Shape.ChangeColor("forestgreen"),
+      "fuchsia":AST.Modifier.Shape.ChangeColor("fuchsia"),
+      "gainsboro":AST.Modifier.Shape.ChangeColor("gainsboro"),
+      "ghostwhite":AST.Modifier.Shape.ChangeColor("ghostwhite"),
+      "gold":AST.Modifier.Shape.ChangeColor("gold"),
+      "goldenrod":AST.Modifier.Shape.ChangeColor("goldenrod"),
+      "gray":AST.Modifier.Shape.ChangeColor("gray"),
+      "grey":AST.Modifier.Shape.ChangeColor("grey"),
+      "green":AST.Modifier.Shape.ChangeColor("green"),
+      "greenyellow":AST.Modifier.Shape.ChangeColor("greenyellow"),
+      "honeydew":AST.Modifier.Shape.ChangeColor("honeydew"),
+      "hotpink":AST.Modifier.Shape.ChangeColor("hotpink"),
+      "indianred":AST.Modifier.Shape.ChangeColor("indianred"),
+      "indigo":AST.Modifier.Shape.ChangeColor("indigo"),
+      "ivory":AST.Modifier.Shape.ChangeColor("ivory"),
+      "khaki":AST.Modifier.Shape.ChangeColor("khaki"),
+      "lavender":AST.Modifier.Shape.ChangeColor("lavender"),
+      "lavenderblush":AST.Modifier.Shape.ChangeColor("lavenderblush"),
+      "lawngreen":AST.Modifier.Shape.ChangeColor("lawngreen"),
+      "lemonchiffon":AST.Modifier.Shape.ChangeColor("lemonchiffon"),
+      "lightblue":AST.Modifier.Shape.ChangeColor("lightblue"),
+      "lightcoral":AST.Modifier.Shape.ChangeColor("lightcoral"),
+      "lightcyan":AST.Modifier.Shape.ChangeColor("lightcyan"),
+      "lightgoldenrodyellow":AST.Modifier.Shape.ChangeColor("lightgoldenrodyellow"),
+      "lightgray":AST.Modifier.Shape.ChangeColor("lightgray"),
+      "lightgreen":AST.Modifier.Shape.ChangeColor("lightgreen"),
+      "lightgrey":AST.Modifier.Shape.ChangeColor("lightgrey"),
+      "lightpink":AST.Modifier.Shape.ChangeColor("lightpink"),
+      "lightsalmon":AST.Modifier.Shape.ChangeColor("lightsalmon"),
+      "lightseagreen":AST.Modifier.Shape.ChangeColor("lightseagreen"),
+      "lightskyblue":AST.Modifier.Shape.ChangeColor("lightskyblue"),
+      "lightslategray":AST.Modifier.Shape.ChangeColor("lightslategray"),
+      "lightslategrey":AST.Modifier.Shape.ChangeColor("lightslategrey"),
+      "lightsteelblue":AST.Modifier.Shape.ChangeColor("lightsteelblue"),
+      "lightyellow":AST.Modifier.Shape.ChangeColor("lightyellow"),
+      "lime":AST.Modifier.Shape.ChangeColor("lime"),
+      "limegreen":AST.Modifier.Shape.ChangeColor("limegreen"),
+      "linen":AST.Modifier.Shape.ChangeColor("linen"),
+      "magenta":AST.Modifier.Shape.ChangeColor("magenta"),
+      "maroon":AST.Modifier.Shape.ChangeColor("maroon"),
+      "mediumaquamarine":AST.Modifier.Shape.ChangeColor("mediumaquamarine"),
+      "mediumblue":AST.Modifier.Shape.ChangeColor("mediumblue"),
+      "mediumorchid":AST.Modifier.Shape.ChangeColor("mediumorchid"),
+      "mediumpurple":AST.Modifier.Shape.ChangeColor("mediumpurple"),
+      "mediumseagreen":AST.Modifier.Shape.ChangeColor("mediumseagreen"),
+      "mediumslateblue":AST.Modifier.Shape.ChangeColor("mediumslateblue"),
+      "mediumspringgreen":AST.Modifier.Shape.ChangeColor("mediumspringgreen"),
+      "mediumturquoise":AST.Modifier.Shape.ChangeColor("mediumturquoise"),
+      "mediumvioletred":AST.Modifier.Shape.ChangeColor("mediumvioletred"),
+      "midnightblue":AST.Modifier.Shape.ChangeColor("midnightblue"),
+      "mintcream":AST.Modifier.Shape.ChangeColor("mintcream"),
+      "mistyrose":AST.Modifier.Shape.ChangeColor("mistyrose"),
+      "moccasin":AST.Modifier.Shape.ChangeColor("moccasin"),
+      "navajowhite":AST.Modifier.Shape.ChangeColor("navajowhite"),
+      "navy":AST.Modifier.Shape.ChangeColor("navy"),
+      "oldlace":AST.Modifier.Shape.ChangeColor("oldlace"),
+      "olive":AST.Modifier.Shape.ChangeColor("olive"),
+      "olivedrab":AST.Modifier.Shape.ChangeColor("olivedrab"),
+      "orange":AST.Modifier.Shape.ChangeColor("orange"),
+      "orangered":AST.Modifier.Shape.ChangeColor("orangered"),
+      "orchid":AST.Modifier.Shape.ChangeColor("orchid"),
+      "palegoldenrod":AST.Modifier.Shape.ChangeColor("palegoldenrod"),
+      "palegreen":AST.Modifier.Shape.ChangeColor("palegreen"),
+      "paleturquoise":AST.Modifier.Shape.ChangeColor("paleturquoise"),
+      "palevioletred":AST.Modifier.Shape.ChangeColor("palevioletred"),
+      "papayawhip":AST.Modifier.Shape.ChangeColor("papayawhip"),
+      "peachpuff":AST.Modifier.Shape.ChangeColor("peachpuff"),
+      "peru":AST.Modifier.Shape.ChangeColor("peru"),
+      "pink":AST.Modifier.Shape.ChangeColor("pink"),
+      "plum":AST.Modifier.Shape.ChangeColor("plum"),
+      "powderblue":AST.Modifier.Shape.ChangeColor("powderblue"),
+      "purple":AST.Modifier.Shape.ChangeColor("purple"),
+      "red":AST.Modifier.Shape.ChangeColor("red"),
+      "rosybrown":AST.Modifier.Shape.ChangeColor("rosybrown"),
+      "royalblue":AST.Modifier.Shape.ChangeColor("royalblue"),
+      "saddlebrown":AST.Modifier.Shape.ChangeColor("saddlebrown"),
+      "salmon":AST.Modifier.Shape.ChangeColor("salmon"),
+      "sandybrown":AST.Modifier.Shape.ChangeColor("sandybrown"),
+      "seagreen":AST.Modifier.Shape.ChangeColor("seagreen"),
+      "seashell":AST.Modifier.Shape.ChangeColor("seashell"),
+      "sienna":AST.Modifier.Shape.ChangeColor("sienna"),
+      "silver":AST.Modifier.Shape.ChangeColor("silver"),
+      "skyblue":AST.Modifier.Shape.ChangeColor("skyblue"),
+      "slateblue":AST.Modifier.Shape.ChangeColor("slateblue"),
+      "slategray":AST.Modifier.Shape.ChangeColor("slategray"),
+      "slategrey":AST.Modifier.Shape.ChangeColor("slategrey"),
+      "snow":AST.Modifier.Shape.ChangeColor("snow"),
+      "springgreen":AST.Modifier.Shape.ChangeColor("springgreen"),
+      "steelblue":AST.Modifier.Shape.ChangeColor("steelblue"),
+      "tan":AST.Modifier.Shape.ChangeColor("tan"),
+      "teal":AST.Modifier.Shape.ChangeColor("teal"),
+      "thistle":AST.Modifier.Shape.ChangeColor("thistle"),
+      "tomato":AST.Modifier.Shape.ChangeColor("tomato"),
+      "turquoise":AST.Modifier.Shape.ChangeColor("turquoise"),
+      "violet":AST.Modifier.Shape.ChangeColor("violet"),
+      "wheat":AST.Modifier.Shape.ChangeColor("wheat"),
+      "white":AST.Modifier.Shape.ChangeColor("white"),
+      "whitesmoke":AST.Modifier.Shape.ChangeColor("whitesmoke"),
+      "yellow":AST.Modifier.Shape.ChangeColor("yellow"),
+      "yellowgreen":AST.Modifier.Shape.ChangeColor("yellowgreen")
+    }
+  });
+  
   var svgForDebug;
   var svgForTestLayout;
   
@@ -2330,6 +2609,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   xypic.Graphics.SVG = xypic.Graphics.Subclass({
     createGroup: function (transform) {
       return xypic.Graphics.SVG.Group(this, transform);
+    },
+    createChangeColorGroup: function (color) {
+      return xypic.Graphics.SVG.ChangeColorGroup(this, color);
     },
     createSVGElement: function (type, def) {
       var obj = xypic.Graphics.createElement(type);
@@ -2377,6 +2659,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       svg.appendChild(this.drawArea);
       this.svg = svg;
       this.boundingBox = undefined;
+      this.color = color;
     },
     stack: function () { return this._stack; },
     setHeight: function (height) {
@@ -2393,6 +2676,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     getOrigin: function () {
       return { x:0, y:0 };
+    },
+    getCurrentColor: function () {
+      return this.color;
     }
   });
   
@@ -2465,6 +2751,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       } else {
         this.origin = transform.apply(parentOrigin.x, parentOrigin.y);
       }
+      memoize(this, "getCurrentColor");
     },
     stack: function () { return this.parent.stack(); },
     remove: function () {
@@ -2475,8 +2762,37 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     getOrigin: function () {
       return this.origin;
+    },
+    getCurrentColor: function () {
+      return this.parent.getCurrentColor();
     }
   });
+  
+  xypic.Graphics.SVG.ChangeColorGroup = xypic.Graphics.SVG.Subclass({
+    Init: function (parent, color) {
+      this.parent = parent;
+      this.drawArea = parent.createSVGElement("g", {
+        stroke: color,
+        fill: color,
+      });
+      this.color = color;
+      memoize(this, "getOrigin");
+    },
+    stack: function () { return this.parent.stack(); },
+    remove: function () {
+      this.drawArea.parentNode.removeChild(this.drawArea);
+    },
+    extendBoundingBox: function (boundingBox) {
+      this.parent.extendBoundingBox(boundingBox);
+    },
+    getOrigin: function () {
+      return this.parent.getOrigin();
+    },
+    getCurrentColor: function () {
+      return this.color;
+    }
+  });
+  
   xypic.Graphics.Augment({}, {
     createSVG: function (stack, height, depth, width, strokeWidth, color, def) {
       return xypic.Graphics.SVG.World(stack, height, depth, width, strokeWidth, color, def);
@@ -2526,16 +2842,16 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       span = this.HTMLcreateSpan(span);
       var stack = HTMLCSS.createStack(span);
       
-      var bbox = {h:1, d:0, w:1, lw:0, rw:1};
+      var bbox = { h:1, d:0, w:1, lw:0, rw:1 };
       var H = bbox.h, D = bbox.d, W = bbox.w;
       var frame = HTMLCSS.createFrame(stack, H + D, 0, W, t, "none");
-      frame.id = "MathJax-frame-"+this.spanID+HTMLCSS.idPostfix;
+      frame.id = "MathJax-frame-" + this.spanID + HTMLCSS.idPostfix;
       
       var svg;
       var color = "black";
       if (HTMLCSS.useSVG) {
         svg = xypic.Graphics.createSVG(stack, H, D, W, t, color, {
-          viewBox:[0, -em2px(H+D), em2px(W), em2px(H+D)].join(" "),
+          viewBox:[0, -em2px(H + D), em2px(W), em2px(H + D)].join(" "),
           overflow:"visible"
         });
         svgForDebug = svg;
@@ -2564,21 +2880,21 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
               var to = textObjects[i];
               var x = parseFloat(to.getAttribute("x"));
               var y = parseFloat(to.getAttribute("y"));
-              to.style.left = (x - (box.x - box.l - p)) + "em";
-              to.style.top = (y + (box.y - box.d)) + "em";
+              to.style.left = "" + em2px(x - (box.x - box.l - p)) + "px";
+              to.style.top = "" + em2px(y + (box.y - box.d)) + "px";
             }
             
-            bbox = {h:(box.u+box.d+p), d:p, w:(box.l+box.r+2*p), lw:0, rw:(box.l+box.r+2*p)}
+            bbox = { h:(box.u + box.d + p), d:p, w:(box.l + box.r + 2 * p), lw:0, rw:(box.l + box.r + 2 * p)}
             span.bbox = bbox;
             D = p;
-            W = box.l+box.r+2*p;
-            H = box.h+box.d+p;
+            W = box.l + box.r + 2 * p;
+            H = box.h + box.d + p;
             
             HTMLCSS.placeBox(scale, 0, -D, true);
             frame.style.width = HTMLCSS.Em(W);
-            frame.style.height = HTMLCSS.Em(H+D);
+            frame.style.height = HTMLCSS.Em(H + D);
             HTMLCSS.addBox(stack, frame); 
-            HTMLCSS.placeBox(frame, W-1, -D, true);
+            HTMLCSS.placeBox(frame, W - 1, -D, true);
             this.HTMLhandleSpace(span);
             this.HTMLhandleColor(span);
           } else {
@@ -2705,18 +3021,21 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       return this.toRect({l:xm, r:xm, u:ym, d:ym});
     },
     toSize: function (width, height) {
-      return this.toRect({l:width/2, r:width/2, u:height/2, d:height/2});
+      return this.toRect({ l:width / 2, r:width / 2, u:height / 2, d:height / 2 });
     },
     growTo: function (width, height) {
       var w = Math.max(0, width);
       var h = Math.max(0, height);
-      return this.toRect({l:w/2, r:w/2, u:h/2, d:h/2});
+      return this.toRect({ l:w / 2, r:w / 2, u:h / 2, d:h / 2 });
     },
     shrinkTo: function (width, height) {
       return this;
     },
     move: function (x, y) {
       return xypic.Frame.Point(x, y);
+    },
+    shiftFrame: function (dx, dy) {
+      return this;
     },
     rotate: function (angle) {
       return this;
@@ -2809,20 +3128,28 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       });
     },
     toSize: function (width, height) {
-      return this.toRect({l:width/2, r:width/2, u:height/2, d:height/2});
+      return this.toRect({ l:width / 2, r:width / 2, u:height / 2, d:height / 2 });
     },
     growTo: function (width, height) {
       var w = Math.max(this.l+this.r, width);
       var h = Math.max(this.u+this.d, height);
-      return this.toRect({l:w/2, r:w/2, u:h/2, d:h/2});
+      return this.toRect({ l:w / 2, r:w / 2, u:h / 2, d:h / 2 });
     },
     shrinkTo: function (width, height) {
       var w = Math.min(this.l+this.r, width);
       var h = Math.min(this.u+this.d, height);
-      return this.toRect({l:w/2, r:w/2, u:h/2, d:h/2});
+      return this.toRect({ l:w / 2, r:w / 2, u:h / 2, d:h / 2 });
     },
     move: function (x, y) {
-      return xypic.Frame.Rect(x, y, {l:this.l, r:this.r, u:this.u, d:this.d});
+      return xypic.Frame.Rect(x, y, { l:this.l, r:this.r, u:this.u, d:this.d });
+    },
+    shiftFrame: function (dx, dy) {
+      return xypic.Frame.Rect(this.x, this.y, {
+        l:Math.max(0, this.l - dx),
+        r:Math.max(0, this.r + dx),
+        u:Math.max(0, this.u + dy),
+        d:Math.max(0, this.d - dy)
+      });
     },
     rotate: function (angle) {
       var c = Math.cos(angle), s = Math.sin(angle);
@@ -2843,68 +3170,163 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
-  // TODO: frame extension対応のため、楕円を表現できるようにする。
-  xypic.Frame.Circle = xypic.Frame.Subclass({
-    Init: function (x, y, r) {
+  xypic.Frame.Ellipse = xypic.Frame.Subclass({
+    Init: function (x, y, l, r, u, d) {
       this.x = x;
       this.y = y;
-      this.l = r;
+      this.l = l;
       this.r = r;
-      this.u = r;
-      this.d = r;
+      this.u = u;
+      this.d = d;
     },
-    isPoint: function () { return this.r === 0; },
+    isPoint: function () { return this.r === 0 && this.l ===0 || this.u === 0 && this.d ===0; },
     isRect: function () { return false; },
     isCircle: function () { return !this.isPoint(); },
+    isPerfectCircle: function () {
+      return this.l === this.r && this.l === this.u && this.l === this.d;
+    },
     edgePoint: function (x, y) {
       if (this.isPoint()) {
         return this;
       }
-      var dx = x - this.x;
-      var dy = y - this.y;
-      var angle;
-      if (Math.abs(dx) < AST.xypic.machinePrecision && Math.abs(dy) < AST.xypic.machinePrecision) {
-        angle = -Math.PI/2;
+      if (this.isPerfectCircle()) {
+        var dx = x - this.x;
+        var dy = y - this.y;
+        var angle;
+        if (Math.abs(dx) < AST.xypic.machinePrecision && Math.abs(dy) < AST.xypic.machinePrecision) {
+          angle = -Math.PI/2;
+        } else {
+          angle = Math.atan2(dy, dx);
+        }
+        return xypic.Frame.Point(this.x + this.r * Math.cos(angle), this.y + this.r * Math.sin(angle));
       } else {
-        angle = Math.atan2(dy, dx);
+        // ellipse
+        var pi = Math.PI;
+        var l = this.l;
+        var r = this.r;
+        var u = this.u;
+        var d = this.d;
+        var cx = this.x + (r - l) / 2;
+        var cy = this.y + (u - d) / 2;
+        var rx = (l + r) / 2;
+        var ry = (u + d) / 2;
+        
+        var delta = pi / 180; // overlapping
+        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
+        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
+        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
+        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
+        
+        var line = xypic.CurveSegment.Line(xypic.Frame.Point(this.x, this.y), xypic.Frame.Point(x, y), 0, 1);
+        
+        var intersec = [];
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc1, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, line));
+        
+        if (intersec.length === 0) {
+          return xypic.Frame.Point(this.x, this.y - this.d);
+        } else {
+          t = (intersec[0][1].min + intersec[0][1].max)/2;
+          for (var i = 1; i < intersec.length; i++) { 
+            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
+            if (t > ttmp) { t = ttmp; }
+          }
+          var xy = line.position(t);
+          return xypic.Frame.Point(xy.x, xy.y);
+        }
       }
-      return xypic.Frame.Point(this.x+this.r*Math.cos(angle), this.y+this.r*Math.sin(angle));
     },
     proportionalEdgePoint: function (x, y) {
       if (this.isPoint()) {
         return this;
       }
-      var dx = x - this.x;
-      var dy = y - this.y;
-      if (Math.abs(dx) < AST.xypic.machinePrecision && Math.abs(dy) < AST.xypic.machinePrecision) {
-        angle = -Math.PI/2;
+      if (this.isPerfectCircle()) {
+        var dx = x - this.x;
+        var dy = y - this.y;
+        var angle;
+        if (Math.abs(dx) < AST.xypic.machinePrecision && Math.abs(dy) < AST.xypic.machinePrecision) {
+          angle = -Math.PI/2;
+        } else {
+          angle = Math.atan2(dy, dx);
+        }
+        return xypic.Frame.Point(this.x - this.r * Math.cos(angle), this.y - this.r * Math.sin(angle));
       } else {
-        angle = Math.atan2(dy, dx);
+        // ellipse
+        var pi = Math.PI;
+        var l = this.l;
+        var r = this.r;
+        var u = this.u;
+        var d = this.d;
+        var cx = this.x + (r - l) / 2;
+        var cy = this.y + (u - d) / 2;
+        var rx = (l + r) / 2;
+        var ry = (u + d) / 2;
+        
+        var delta = pi / 180; // overlapping
+        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
+        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
+        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
+        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
+        
+        var line = xypic.CurveSegment.Line(xypic.Frame.Point(this.x, this.y), xypic.Frame.Point(x, y), -1, 0);
+        
+        var intersec = [];
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc1, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, line));
+        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, line));
+        
+        if (intersec.length === 0) {
+          return xypic.Frame.Point(this.x, this.y - this.d);
+        } else {
+          t = (intersec[0][1].min + intersec[0][1].max)/2;
+          for (var i = 1; i < intersec.length; i++) { 
+            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
+            if (t > ttmp) { t = ttmp; }
+          }
+          var xy = line.position(t);
+          return xypic.Frame.Point(xy.x, xy.y);
+        }
       }
-      return xypic.Frame.Point(this.x-this.r*Math.cos(angle), this.y-this.r*Math.sin(angle));
     },
     grow: function (xMargin, yMargin) {
-      return xypic.Frame.Circle(this.x, this.y, Math.max(0, this.r+xMargin));
+      return xypic.Frame.Ellipse(this.x, this.y, Math.max(0, this.l + xMargin), Math.max(0, this.r + xMargin), Math.max(0, this.u + yMargin), Math.max(0, this.d + yMargin));
     },
     toSize: function (width, height) {
-      return xypic.Frame.Circle(this.x, this.y, width/2);
+      return xypic.Frame.Ellipse(this.x, this.y, width / 2, width / 2, height / 2, height / 2);
     },
     growTo: function (width, height) {
-      var r = Math.max(this.r, width/2);
-      return xypic.Frame.Circle(this.x, this.y, r);
+      var l = Math.max(this.l, width / 2);
+      var r = Math.max(this.r, width / 2);
+      var u = Math.max(this.u, height / 2);
+      var d = Math.max(this.d, height / 2);
+      return xypic.Frame.Ellipse(this.x, this.y, l, r, u, d);
     },
     shrinkTo: function (width, height) {
-      var r = Math.min(this.r, width/2);
-      return xypic.Frame.Circle(this.x, this.y, r);
+      var l = Math.min(this.l, width / 2);
+      var r = Math.min(this.r, width / 2);
+      var u = Math.min(this.u, height / 2);
+      var d = Math.min(this.d, height / 2);
+      return xypic.Frame.Ellipse(this.x, this.y, l, r, u, d);
     },
     move: function (x, y) {
-      return xypic.Frame.Circle(x, y, this.r);
+      return xypic.Frame.Ellipse(x, y, this.l, this.r, this.u, this.d);
+    },
+    shiftFrame: function (dx, dy) {
+      return xypic.Frame.Ellipse(this.x, this.y, 
+        Math.max(0, this.l - dx),
+        Math.max(0, this.r + dx),
+        Math.max(0, this.u + dy),
+        Math.max(0, this.d - dy)
+      );
     },
     rotate: function (angle) {
       return this;
     },
     toString: function () {
-      return "{x:"+this.x+", y:"+this.y+", r:"+this.r+"}";
+      return "{x:" + this.x + ", y:" + this.y + ", l:" + this.l + ", r:" + this.r + ", u:" + this.u + ", d:" + this.d + "}";
     }
   });
   
@@ -2994,6 +3416,24 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
+  xypic.Shape.ChangeColorShape = xypic.Shape.Subclass({
+    Init: function (color, shape) {
+      this.color = color;
+      this.shape = shape;
+      memoize(this, "getBoundingBox");
+    },
+    draw: function (svg) {
+      var g = svg.createChangeColorGroup(this.color);
+      this.shape.draw(g);
+    },
+    getBoundingBox: function () {
+      return this.shape.getBoundingBox();
+    },
+    toString: function () {
+      return "" + this.shape + ", color:" + this.color;
+    }
+  });
+  
   xypic.Shape.CircleSegmentShape = xypic.Shape.Subclass({
     Init: function (x, y, sx, sy, r, large, flip, ex, ey) {
       this.x = x;
@@ -3013,7 +3453,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       });
     },
     getBoundingBox: function () {
-      return xypic.Frame.Circle(this.x, this.y, this.r);
+      return xypic.Frame.Ellipse(this.x, this.y, this.r, this.r, this.r, this.r);
     },
     toString: function () {
       return "CircleSegmentShape[x:" + this.x + ", y:" + this.y + ", sx:" + this.sx + ", sy:" + this.sy + ", r:" + this.r + ", large:" + this.large + ", flip:" + this.flip + ", ex:" + this.ex + ", ey:" + this.ey + "]";
@@ -3033,7 +3473,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       });
     },
     getBoundingBox: function () {
-      return xypic.Frame.Circle(this.x, this.y, this.r);
+      return xypic.Frame.Ellipse(this.x, this.y, this.r, this.r, this.r, this.r);
     },
     toString: function () {
       return "FullCircleShape[x:" + this.x + ", y:" + this.y + ", r:" + this.r + "]";
@@ -3041,7 +3481,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   xypic.Shape.RectangleShape = xypic.Shape.Subclass({
-    Init: function (x, y, left, right, up, down, r, isDoubled, isFilled, color, dasharray) {
+    Init: function (x, y, left, right, up, down, r, isDoubled, color, dasharray, fillColor, hideLine) {
       this.x = x;
       this.y = y;
       this.left = left;
@@ -3050,9 +3490,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.down = down;
       this.r = r;
       this.isDoubled = isDoubled;
-      this.isFilled = isFilled;
       this.color = color;
       this.dasharray = dasharray;
+      this.fillColor = fillColor;
+      this.hideLine = hideLine || false;
       memoize(this, "getBoundingBox");
     },
     draw: function (svg) {
@@ -3067,6 +3508,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       if (this.dasharray !== undefined) {
         def["stroke-dasharray"] = this.dasharray;
       }
+      if (this.hideLine) {
+        def["stroke"] = "none";
+      } else if (this.color !== undefined) {
+        def["stroke"] = this.color;
+      }
+      if (this.fillColor !== undefined) {
+        def["fill"] = this.fillColor;
+      }
       svg.createSVGElement("rect", def);
       if (this.isDoubled) {
         def = {
@@ -3078,6 +3527,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         };
         if (this.dasharray !== undefined) {
           def["stroke-dasharray"] = this.dasharray;
+        }
+        if (this.hideLine) {
+          def["stroke"] = "none";
+        } else if (this.color !== undefined) {
+          def["stroke"] = this.color;
+        }
+        if (this.fillColor !== undefined) {
+          def["fill"] = this.fillColor;
         }
         svg.createSVGElement("rect", def);
       }
@@ -3091,15 +3548,16 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   xypic.Shape.EllipseShape = xypic.Shape.Subclass({
-    Init: function (x, y, rx, ry, isDoubled, isFilled, color, dasharray) {
+    Init: function (x, y, rx, ry, isDoubled, color, dasharray, fillColor, hideLine) {
       this.x = x;
       this.y = y;
       this.rx = rx;
       this.ry = ry;
       this.isDoubled = isDoubled;
-      this.isFilled = isFilled;
       this.color = color;
       this.dasharray = dasharray;
+      this.fillColor = fillColor;
+      this.hideLine = hideLine || false;
       memoize(this, "getBoundingBox");
     },
     draw: function (svg) {
@@ -3113,6 +3571,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       if (this.dasharray !== undefined) {
         def["stroke-dasharray"] = this.dasharray;
       }
+      if (this.hideLine) {
+        def["stroke"] = "none";
+      } else if (this.color !== undefined) {
+        def["stroke"] = this.color;
+      }
+      if (this.fillColor !== undefined) {
+        def["fill"] = this.fillColor;
+      }
       svg.createSVGElement("ellipse", def);
       if (this.isDoubled) {
         def = {
@@ -3123,6 +3589,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         };
         if (this.dasharray !== undefined) {
           def["stroke-dasharray"] = this.dasharray;
+        }
+        if (this.hideLine) {
+          def["stroke"] = "none";
+        } else if (this.color !== undefined) {
+          def["stroke"] = this.color;
+        }
+        if (this.fillColor !== undefined) {
+          def["fill"] = this.fillColor;
         }
         svg.createSVGElement("ellipse", def);
       }
@@ -3163,6 +3637,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           "L" + (x + r + depth) + "," + (-y + d + depth) + 
           "L" + (x - l + depth) + "," + (-y + d + depth) + 
           "Z",
+        stroke: this.color,
         fill: this.color
       });
     },
@@ -3170,17 +3645,18 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       return xypic.Frame.Rect(this.x, this.y, { l:this.left, r:this.right + this.depth, u:this.up, d:this.down + this.depth });
     },
     toString: function () {
-      return "RectangleShape[x:" + this.x + ", y:" + this.y + ", left:" + this.left + ", right:" + this.right + ", up:" + this.up + ", down:" + this.down + ", depth:" + this.depth + ", color:" + this.color + "]";
+      return "RectangleShape[x:" + this.x + ", y:" + this.y + ", left:" + this.left + ", right:" + this.right + ", up:" + this.up + ", down:" + this.down + ", depth:" + this.depth + "]";
     }
   });
   
   xypic.Shape.LeftBrace = xypic.Shape.Subclass({
-    Init: function (x, y, up, down, degree) {
+    Init: function (x, y, up, down, degree, color) {
       this.x = x;
       this.y = y;
       this.up = up;
       this.down = down;
       this.degree = degree;
+      this.color = color || "currentColor";
       memoize(this, "getBoundingBox");
     },
     draw: function (svg) {
@@ -3265,7 +3741,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         "Q" + em2px(-0.0675) + " " + em2px(0.496125) + 
         " " + em2px(-0.0675) + " " + em2px(0.759375) + 
         "Z";
-      svg.createSVGElement("path", { d:d, fill:"currentColor", "stroke-width":"0pt", transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")" });
+      svg.createSVGElement("path", {
+        d:d, 
+        fill:this.color, 
+        stroke:this.color, 
+        "stroke-width":"0pt", 
+        transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")"
+      });
     },
     getBoundingBox: function () {
       return xypic.Frame.Rect(this.x, this.y, { l:0.308, r:0.308, u:Math.max(0.759375 + 0.660375, this.up), d:Math.max(0.759375 + 0.660375, this.down) }).rotate(this.degree * Math.PI / 180);
@@ -3276,11 +3758,12 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   xypic.Shape.LeftParenthesis = xypic.Shape.Subclass({
-    Init: function (x, y, height, degree) {
+    Init: function (x, y, height, degree, color) {
       this.x = x;
       this.y = y;
       this.height = height;
       this.degree = degree;
+      this.color = color || "currentColor";
       memoize(this, "getBoundingBox");
     },
     draw: function (svg) {
@@ -3330,7 +3813,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         "Q" + em2px(-0.0675) + " " + em2px(up) + 
         " " + em2px(-0.0675) + " " + em2px(up) + 
         "Z";
-      svg.createSVGElement("path", { d:d, fill:"currentColor", "stroke-width":"0pt", transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")" });
+      svg.createSVGElement("path", {
+        d:d, 
+        fill:this.color, 
+        stroke:this.color, 
+        "stroke-width":"0pt", 
+        transform:"translate(" + em2px(this.x) + "," + em2px(-this.y) +") rotate(" + (-this.degree) + ")"
+      });
     },
     getBoundingBox: function () {
       return xypic.Frame.Rect(this.x, this.y, { l:0.0675, r:0.308, u:Math.max(0.660375, this.height / 2), d:Math.max(0.660375, this.height / 2) }).rotate(this.degree * Math.PI / 180);
@@ -3362,7 +3851,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var p = HTMLCSS.length2em("0.1em");
       var mathSpan = HTMLCSS.Element("span", {
         className:"MathJax", 
-        style:{ "text-align":"center", role:"textbox", "aria-readonly":"true", position:"absolute" /*, "border":"0.1px dashed" */ }
+        style:{ "text-align":"center", role:"textbox", "aria-readonly":"true", position:"absolute", color:svg.getCurrentColor() /*, "border":"0.1px dashed" */ }
       });
       
       svg.stack().appendChild(mathSpan);
@@ -6033,12 +6522,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         
         t = Math.min.apply(Math, ts);
       } else if (frame.isCircle()) {
-        var cx = frame.x, cy = frame.y, r = frame.r, pi = Math.PI;
+        var pi = Math.PI;
+        var x = frame.x;
+        var y = frame.y;
+        var l = frame.l;
+        var r = frame.r;
+        var u = frame.u;
+        var d = frame.d;
+        var cx = x + (r - l) / 2;
+        var cy = y + (u - d) / 2;
+        var rx = (l + r) / 2;
+        var ry = (u + d) / 2;
         
-        var arc0 = xypic.CurveSegment.Arc(cx, cy, r, -pi, -pi/2);
-        var arc1 = xypic.CurveSegment.Arc(cx, cy, r, -pi/2, 0);
-        var arc2 = xypic.CurveSegment.Arc(cx, cy, r, 0, pi/2);
-        var arc3 = xypic.CurveSegment.Arc(cx, cy, r, pi/2, pi);
+        var delta = pi / 180; // overlapping
+        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
+        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
+        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
+        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
         
         var bezier = xypic.CurveSegment.QuadBezier(xypic.Curve.QuadBezier(cp0, cp1, cp2), 0, 1);
         
@@ -6051,9 +6551,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         if (intersec.length === 0) {
           return undefined;
         } else {
-          t = (intersec[0][1].min + intersec[0][1].max)/2;
+          t = (intersec[0][1].min + intersec[0][1].max) / 2;
           for (var i = 1; i < intersec.length; i++) { 
-            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
+            var ttmp = (intersec[i][1].min + intersec[i][1].max) / 2;
             if (t > ttmp) { t = ttmp; }
           }
         }
@@ -6061,7 +6561,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var tx = px(t);
       var ty = py(t);
       cp0 = xypic.Frame.Point(tx, ty);
-      cp1 = xypic.Frame.Point(x1+t*(x2-x1), y1+t*(y2-y1));
+      cp1 = xypic.Frame.Point(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
       return [cp0, cp1 ,cp2];
     },
     countOfSegments: function () { return 1; },
@@ -6303,12 +6803,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         
         t = Math.min.apply(Math, ts);
       } else if (frame.isCircle()) {
-        var cx = frame.x, cy = frame.y, r = frame.r, pi = Math.PI;
+        var pi = Math.PI;
+        var x = frame.x;
+        var y = frame.y;
+        var l = frame.l;
+        var r = frame.r;
+        var u = frame.u;
+        var d = frame.d;
+        var cx = x + (r - l) / 2;
+        var cy = y + (u - d) / 2;
+        var rx = (l + r) / 2;
+        var ry = (u + d) / 2;
         
-        var arc0 = xypic.CurveSegment.Arc(cx, cy, r, -pi, -pi/2);
-        var arc1 = xypic.CurveSegment.Arc(cx, cy, r, -pi/2, 0);
-        var arc2 = xypic.CurveSegment.Arc(cx, cy, r, 0, pi/2);
-        var arc3 = xypic.CurveSegment.Arc(cx, cy, r, pi/2, pi);
+        var delta = pi / 180; // overlapping
+        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
+        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
+        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
+        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
         
         var bezier = xypic.CurveSegment.CubicBezier(xypic.Curve.CubicBezier(cp0, cp1, cp2, cp3), 0, 1);
         
@@ -6904,7 +7415,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     fatLine: function () {
       var a = (this.p1.y - this.p0.y), b = (this.p0.x - this.p1.x), c = this.p1.x*this.p0.y - this.p0.x*this.p1.y;
-      var l = Math.sqrt(a*a + b*b);
+      var l = Math.sqrt(a * a + b * b);
       if (l === 0) {
         a = 1;
         b = 0;
@@ -7033,49 +7544,88 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   xypic.CurveSegment.Arc = xypic.CurveSegment.Subclass({
-    Init: function (x, y, r, angleMin, angleMax) {
+    Init: function (x, y, rx, ry, angleMin, angleMax) {
       this.x = x;
       this.y = y;
-      this.r = r;
+      this.rx = rx;
+      this.ry = ry;
       this.angleMin = angleMin;
       this.angleMax = angleMax;
     },
-    paramRange: function () { return {min:this.angleMin, max:this.angleMax}; },
+    paramRange: function () { return { min:this.angleMin, max:this.angleMax }; },
     paramLength: function () { return this.angleMax - this.angleMin; },
     normalizeAngle: function (angle) {
-      angle = angle % 2*Math.PI;
+      angle = angle % 2 * Math.PI;
       if (angle > Math.PI) {
-        return angle - 2*Math.PI;
+        return angle - 2 * Math.PI;
       }
       if (angle < -Math.PI) {
-        return angle + 2*Math.PI;
+        return angle + 2 * Math.PI;
       }
       return angle;
     },
     containsParam: function (angle) { return angle >= this.angleMin && angle <= this.angleMax; }, 
     fatLine: function () {
-      var tp = (this.angleMax+this.angleMin)/2;
-      var tm = (this.angleMax-this.angleMin)/2;
+      var rx = this.rx;
+      var ry = this.ry;
+      var tp = (this.angleMax + this.angleMin) / 2;
+      var tm = (this.angleMax - this.angleMin) / 2;
       var cosp = Math.cos(tp), sinp = Math.sin(tp);
-      var Lmin = [-cosp, -sinp, this.x*cosp + this.y*sinp + this.r*Math.cos(tm)];
-      var Lmax = [-cosp, -sinp, this.r + this.x*cosp + this.y*sinp];
-      return {min:Lmin, max:Lmax};
+      var r = Math.sqrt(rx * rx * sinp * sinp + ry * ry * cosp * cosp);
+      if (r < AST.xypic.machinePrecision) {
+        var Lmin = [1, 0, this.x * ry * cosp + this.y * rx * sinp + rx * ry * Math.cos(tm)];
+        var Lmax = [1, 0, this.x * ry * cosp + this.y * rx * sinp + rx * ry];
+      } else {
+        var rrx = rx / r;
+        var rry = ry / r;
+        var Lmin = [-rry * cosp, -rrx * sinp, this.x * rry * cosp + this.y * rrx * sinp + rx * ry / r * Math.cos(tm)];
+        var Lmax = [-rry * cosp, -rrx * sinp, this.x * rry * cosp + this.y * rrx * sinp + rx * ry / r];
+      }
+      return { min:Lmin, max:Lmax };
     },
     clip: function (angleMin, angleMax) {
-      return xypic.CurveSegment.Arc(this.x, this.y, this.r, angleMin, angleMax);
+      return xypic.CurveSegment.Arc(this.x, this.y, this.rx, this.ry, angleMin, angleMax);
     },
-    clippedRange: function (lineMin, lineMax) {
-      var x = this.x, y = this.y, r = this.r, angleMin = this.angleMin, angleMax = this.angleMax;
-      var d = -(lineMin[0]*x+lineMin[1]*y+lineMin[2]);
+    toCircleLine: function (line, x0, y0, rx, ry) {
+      var a = line[0];
+      var b = line[1];
+      var c = line[2];
+      var a2 = a * rx;
+      var b2 = b * ry;
+      var c2 = c * rx + (rx - ry) * b * y0;
+      var l = Math.sqrt(a2 * a2 + b2 * b2);
+      if (l < AST.xypic.machinePrecision) {
+        a2 = 1;
+        b2 = 0;
+      } else {
+        a2 /= l;
+        b2 /= l;
+        c2 /= l;
+      }
+      return [a2, b2, c2];
+    },
+    clippedRange: function (origLineMin, origLineMax) {
+      var x = this.x;
+      var y = this.y;
+      var rx = this.rx;
+      var ry = this.ry;
+      
+      var lineMin = this.toCircleLine(origLineMin, x, y, rx, ry);
+      var lineMax = this.toCircleLine(origLineMax, x, y, rx, ry);
+      var r = rx;
+      
+      var angleMin = this.angleMin;
+      var angleMax = this.angleMax;
+      var d = -(lineMin[0] * x + lineMin[1] * y + lineMin[2]);
       
       var sign = xypic.Util.sign2;
       var angles = [];
-      var det = r*r - d*d;
+      var det = r * r - d * d;
       if (det >= 0) {
-        var xp = lineMin[0]*d - lineMin[1]*Math.sqrt(r*r - d*d);
-        var yp = lineMin[1]*d + lineMin[0]*Math.sqrt(r*r - d*d);
-        var xm = lineMin[0]*d + lineMin[1]*Math.sqrt(r*r - d*d);
-        var ym = lineMin[1]*d - lineMin[0]*Math.sqrt(r*r - d*d);
+        var xp = lineMin[0] * d - lineMin[1] * Math.sqrt(r * r - d * d);
+        var yp = lineMin[1] * d + lineMin[0] * Math.sqrt(r * r - d * d);
+        var xm = lineMin[0] * d + lineMin[1] * Math.sqrt(r * r - d * d);
+        var ym = lineMin[1] * d - lineMin[0] * Math.sqrt(r * r - d * d);
         var anglep = Math.atan2(yp, xp);
         var anglem = Math.atan2(ym, xm);
         if (this.containsParam(anglep)) {
@@ -7086,8 +7636,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         }
       }
       
-      var d0 = -(lineMin[0]*(x+r*Math.cos(angleMin)) + lineMin[1]*(y+r*Math.sin(angleMin)) + lineMin[2]);
-      var d1 = -(lineMin[0]*(x+r*Math.cos(angleMax)) + lineMin[1]*(y+r*Math.sin(angleMax)) + lineMin[2]);
+      var d0 = -(lineMin[0] * (x + r * Math.cos(angleMin)) + lineMin[1] * (y + r * Math.sin(angleMin)) + lineMin[2]);
+      var d1 = -(lineMin[0] * (x + r * Math.cos(angleMax)) + lineMin[1] * (y + r * Math.sin(angleMax)) + lineMin[2]);
       var angleMinAgainstLineMin, angleMaxAgainstLineMin;
       if (d0 < 0) {
         if (angles.length == 0) {
@@ -7108,14 +7658,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         angleMaxAgainstLineMin = this.angleMax;
       }
       
-      var d = lineMax[0]*x+lineMax[1]*y+lineMax[2];
+      var d = lineMax[0] * x + lineMax[1] * y + lineMax[2];
       var angles = [];
-      var det = r*r - d*d;
+      var det = r * r - d * d;
       if (det >= 0) {
-        var xp = -lineMin[0]*d + lineMin[1]*Math.sqrt(r*r - d*d);
-        var yp = -lineMin[1]*d - lineMin[0]*Math.sqrt(r*r - d*d);
-        var xm = -lineMin[0]*d - lineMin[1]*Math.sqrt(r*r - d*d);
-        var ym = -lineMin[1]*d + lineMin[0]*Math.sqrt(r*r - d*d);
+        var xp = -lineMin[0] * d + lineMin[1] * Math.sqrt(r * r - d * d);
+        var yp = -lineMin[1] * d - lineMin[0] * Math.sqrt(r * r - d * d);
+        var xm = -lineMin[0] * d - lineMin[1] * Math.sqrt(r * r - d * d);
+        var ym = -lineMin[1] * d + lineMin[0] * Math.sqrt(r * r - d * d);
         var anglep = Math.atan2(yp, xp);
         var anglem = Math.atan2(ym, xm);
         if (this.containsParam(anglep)) {
@@ -7126,8 +7676,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         }
       }
       
-      var d0 = lineMax[0]*(x+r*Math.cos(angleMin)) + lineMax[1]*(y+r*Math.sin(angleMin)) + lineMax[2];
-      var d1 = lineMax[0]*(x+r*Math.cos(angleMax)) + lineMax[1]*(y+r*Math.sin(angleMax)) + lineMax[2];
+      var d0 = lineMax[0] * (x + r * Math.cos(angleMin)) + lineMax[1] * (y + r * Math.sin(angleMin)) + lineMax[2];
+      var d1 = lineMax[0] * (x + r * Math.cos(angleMax)) + lineMax[1] * (y + r * Math.sin(angleMax)) + lineMax[2];
       var angleMinAgainstLineMax, angleMaxAgainstLineMax;
       if (d0 < 0) {
         if (angles.length == 0) {
@@ -7148,17 +7698,20 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         angleMaxAgainstLineMax = this.angleMax;
       }
       
-      return {min:Math.max(angleMinAgainstLineMin, angleMinAgainstLineMax), max:Math.min(angleMaxAgainstLineMin, angleMaxAgainstLineMax)};
+      return {
+        min:Math.max(angleMinAgainstLineMin, angleMinAgainstLineMax), 
+        max:Math.min(angleMaxAgainstLineMin, angleMaxAgainstLineMax)
+      };
     },
     drawFatLine: function () {
       var fatLine = this.fatLine();
       var lmin = fatLine.min;
       var lmax = fatLine.max;
       var y = function (x, l) {
-        return -(x*l[0] + l[2])/l[1];
+        return -(x * l[0] + l[2]) / l[1];
       }
-      var x0 = this.x+this.r*Math.cos(this.angleMin);
-      var x1 = this.x+this.r*Math.cos(this.angleMax);
+      var x0 = this.x + this.r * Math.cos(this.angleMin);
+      var x1 = this.x + this.r * Math.cos(this.angleMax);
       var xmin = x0;
       var xmax = x1;
       svgForDebug.createSVGElement("line", {
@@ -7484,6 +8037,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.p = this.c = xypic.Env.originPosition;
       this.shouldCapturePos = false;
       this.capturedPositions = FP.List.empty;
+      this.modifierRepository = xypic.ModifierRepository();
     },
     duplicate: function () {
       var newEnv = xypic.Env();
@@ -7607,6 +8161,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           to.savedPosition[id] = from.savedPosition[id];
         }
       }
+      to.modifierRepository = from.modifierRepository.duplicate();
     }
   });
   
@@ -8097,7 +8652,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var x = env.c.x;
       var y = env.c.y;
       var circleShape = this.cir.toDropShape(context, x, y, r);
-      env.c = xypic.Frame.Circle(x, y, r);
+      env.c = xypic.Frame.Ellipse(x, y, r, r, r, r);
       
       return circleShape;
     },
@@ -8230,6 +8785,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   
   AST.ObjectBox.Frame.Augment({
     toDropShape: function (context) {
+      return this.toDropFilledShape(context, "currentColor", false)
+    },
+    toDropFilledShape: function (context, color, convertToEllipse) {
       var env = context.env;
       var c = env.c;
       if (c === undefined) {
@@ -8247,131 +8805,176 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       switch (this.main) {
         case '--':
           var dash = 3 * t;
-          var radius = this.radius.radius(context);
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          if (convertToEllipse) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, em2px(dash) + " " + em2px(dash));
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, color, em2px(dash) + " " + em2px(dash));
+          }
           break;
           
         case '==':
           var dash = 3 * t;
-          var radius = this.radius.radius(context);
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, false, undefined, em2px(dash) + " " + em2px(dash));
+          if (convertToEllipse) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, true, color, em2px(dash) + " " + em2px(dash));
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, color, em2px(dash) + " " + em2px(dash));
+          }
           break;
           
         case 'o-':
           var dash = 3 * t;
           var radius = AST.xypic.lineElementLength;
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, color, em2px(dash) + " " + em2px(dash));
           break;
           
         case 'oo':
           var xy = this.radius.xy(context);
           var r = xy.x;
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, true, false, undefined, undefined);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, true, color, undefined);
           break;
           
         case 'ee':
           var xy = this.radius.xy(context);
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, true, false, undefined, undefined);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, true, color, undefined);
           break;
           
         case '-,':
           var depth = this.radius.depth(context);
           var radius = this.radius.radius(context);
           shape = xypic.Shape.CompositeShape(
-            xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, undefined),
-            xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth, undefined)
+            xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, color, undefined),
+            xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth)
           );
           break;
           
         case '.o':
           var xy = this.radius.xy(context);
           var r = xy.x;
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, "1 " + em2px(t));
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, color, "1 " + em2px(t));
           break;
           
         case '-o':
           var dash = 3 * t;
           var xy = this.radius.xy(context);
           var r = xy.x;
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, color, em2px(dash) + " " + em2px(dash));
           break;
           
         case '.e':
           var xy = this.radius.xy(context);
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, "1 " + em2px(t));
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, "1 " + em2px(t));
           break;
           
         case '-e':
           var dash = 3 * t;
           var xy = this.radius.xy(context);
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, em2px(dash) + " " + em2px(dash));
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, em2px(dash) + " " + em2px(dash));
           break;
           
         case '-':
-          var radius = this.radius.radius(context);
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, undefined);
+          if (convertToEllipse) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, undefined);
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, color, undefined);
+          }
           break;
           
         case '=':
-          var radius = this.radius.radius(context);
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, false, undefined, undefined);
+          if (convertToEllipse) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, true, color, undefined);
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, true, color, undefined);
+          }
           break;
           
         case '.':
-          var radius = this.radius.radius(context);
-          shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, false, undefined, "1 " + em2px(t));
+          if (convertToEllipse) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, "1 " + em2px(t));
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, color, "1 " + em2px(t));
+          }
           break;
           
         case ',':
           var depth = this.radius.depth(context);
-          shape = xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth, undefined);
+          shape = xypic.Shape.BoxShadeShape(x, y, left, right, up, down, depth, color);
           break;
           
         case 'o':
           var xy = this.radius.xy(context);
           var r = xy.x;
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, false, undefined, undefined);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, r, r, false, color, undefined);
           break;
           
         case 'e':
           var xy = this.radius.xy(context);
-          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, false, undefined, undefined);
+          shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, color, undefined);
           break;
           
         case '\\{':
-          shape = xypic.Shape.LeftBrace(x - left, y, up, down, 0);
+          shape = xypic.Shape.LeftBrace(x - left, y, up, down, 0, color);
           break;
           
         case '\\}':
-          shape = xypic.Shape.LeftBrace(x + right, y, down, up, 180);
+          shape = xypic.Shape.LeftBrace(x + right, y, down, up, 180, color);
           break;
           
         case '^\\}':
         case '^\\{':
-          shape = xypic.Shape.LeftBrace(x, y + up, right, left, 270);
+          shape = xypic.Shape.LeftBrace(x, y + up, right, left, 270, color);
           break;
           
         case '_\\{':
         case '_\\}':
-          shape = xypic.Shape.LeftBrace(x, y - down, left, right, 90);
+          shape = xypic.Shape.LeftBrace(x, y - down, left, right, 90, color);
           break;
           
         case '(':
-          shape = xypic.Shape.LeftParenthesis(x - left, y + (up - down) / 2, up + down, 0);
+          shape = xypic.Shape.LeftParenthesis(x - left, y + (up - down) / 2, up + down, 0, color);
           break;
           
         case ')':
-          shape = xypic.Shape.LeftParenthesis(x + right, y + (up - down) / 2, up + down, 180);
+          shape = xypic.Shape.LeftParenthesis(x + right, y + (up - down) / 2, up + down, 180, color);
           break;
           
         case '^(':
         case '^)':
-          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y + up, left + right, 270);
+          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y + up, left + right, 270, color);
           break;
           
         case '_(':
         case '_)':
-          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y - down, left + right, 90);
+          shape = xypic.Shape.LeftParenthesis(x + (right - left) / 2, y - down, left + right, 90, color);
+          break;
+          
+        case '*':
+          if (c.isCircle()) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, "currentColor", undefined, color, true);
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, "currentColor", undefined, color, true);
+          }
+          break;
+        
+        case '**':
+          if (c.isCircle()) {
+            var xy = this.radius.xy(context);
+            shape = xypic.Shape.EllipseShape(x + (right - left) / 2, y + (up - down) / 2, xy.x, xy.y, false, "currentColor", undefined, color, false);
+          } else {
+            var radius = this.radius.radius(context);
+            shape = xypic.Shape.RectangleShape(x, y, left, right, up, down, radius, false, "currentColor", undefined, color, false);
+          }
           break;
           
         default:
@@ -8443,11 +9046,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           switch (this.variant) {
             case "2":
               shape = xypic.Shape.GT2ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             case "3":
               shape = xypic.Shape.GT3ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             default:
               if (this.variant === "^") {
@@ -8463,11 +9068,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           switch (this.variant) {
             case "2":
               shape = xypic.Shape.LT2ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             case "3":
               shape = xypic.Shape.LT3ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             default:
               if (this.variant === "^") {
@@ -8607,11 +9214,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
               break;
             case "2":
               shape = xypic.Shape.GTGT2ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             case "3":
               shape = xypic.Shape.GTGT3ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             default:
               shape = xypic.Shape.GTGTArrowheadShape(c, angle);
@@ -8628,11 +9237,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
               break;
             case "2":
               shape = xypic.Shape.LTLT2ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             case "3":
               shape = xypic.Shape.LTLT3ArrowheadShape(c, angle);
-              env.c = xypic.Frame.Circle(c.x, c.y, shape.r);
+              var r = shape.r;
+              env.c = xypic.Frame.Ellipse(c.x, c.y, r, r, r, r);
               break;
             default:
               shape = xypic.Shape.LTLTArrowheadShape(c, angle);
@@ -9350,7 +9961,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     modifyShape: function (context, objectShape) {
       var c = context.env.c;
-      context.env.c = xypic.Frame.Circle(c.x, c.y, Math.max(c.l, c.r, c.u, c.d));
+      context.env.c = xypic.Frame.Ellipse(c.x, c.y, c.l, c.r, c.u, c.d);
       return objectShape;
     }
   });
@@ -9359,8 +9970,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     preprocess: function (context) {
     },
     modifyShape: function (context, objectShape) {
-      // TODO impl [l]
-      return objectShape;
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return objectShape;
+      }
+      var width = c.r + c.l;
+      var height = c.u + c.d;
+      var dx, dy;
+      if (width < height) {
+        dx = (c.l - c.r) / 2;
+        dy = (c.d - c.u) / 2;
+      } else {
+        dx = -c.r + height / 2;
+        dy = (c.d - c.u) / 2;
+      }
+      env.c = env.c.shiftFrame(dx, dy);
+      return xypic.Shape.TranslateShape(dx, dy, objectShape);
     }
   });
   
@@ -9368,8 +9994,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     preprocess: function (context) {
     },
     modifyShape: function (context, objectShape) {
-      // TODO impl [r]
-      return objectShape;
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return objectShape;
+      }
+      var width = c.r + c.l;
+      var height = c.u + c.d;
+      var dx, dy;
+      if (width < height) {
+        dx = (c.l - c.r) / 2;
+        dy = (c.d - c.u) / 2;
+      } else {
+        dx = c.l - height / 2;
+        dy = (c.d - c.u) / 2;
+      }
+      env.c = env.c.shiftFrame(dx, dy);
+      return xypic.Shape.TranslateShape(dx, dy, objectShape);
     }
   });
   
@@ -9377,8 +10018,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     preprocess: function (context) {
     },
     modifyShape: function (context, objectShape) {
-      // TODO impl [u]
-      return objectShape;
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return objectShape;
+      }
+      var width = c.r + c.l;
+      var height = c.u + c.d;
+      var dx, dy;
+      if (width > height) {
+        dx = (c.l - c.r) / 2;
+        dy = (c.d - c.u) / 2;
+      } else {
+        dx = (c.l - c.r) / 2;
+        dy = c.d - width / 2;
+      }
+      env.c = env.c.shiftFrame(dx, dy);
+      return xypic.Shape.TranslateShape(dx, dy, objectShape);
     }
   });
   
@@ -9386,8 +10042,23 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     preprocess: function (context) {
     },
     modifyShape: function (context, objectShape) {
-      // TODO impl [d]
-      return objectShape;
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return objectShape;
+      }
+      var width = c.r + c.l;
+      var height = c.u + c.d;
+      var dx, dy;
+      if (width > height) {
+        dx = (c.l - c.r) / 2;
+        dy = (c.d - c.u) / 2;
+      } else {
+        dx = (c.l - c.r) / 2;
+        dy = -c.u + width / 2;
+      }
+      env.c = env.c.shiftFrame(dx, dy);
+      return xypic.Shape.TranslateShape(dx, dy, objectShape);
     }
   });
   
@@ -9395,7 +10066,39 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     preprocess: function (context) {
     },
     modifyShape: function (context, objectShape) {
-      // TODO impl [c]
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return objectShape;
+      }
+      var dx, dy;
+      dx = (c.l - c.r) / 2;
+      dy = (c.d - c.u) / 2;
+      env.c = env.c.shiftFrame(dx, dy);
+      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+    }
+  });
+  
+  AST.Modifier.Shape.ChangeColor.Augment({
+    preprocess: function (context) {
+    },
+    modifyShape: function (context, objectShape) {
+      return xypic.Shape.ChangeColorShape(this.colorName, objectShape);
+    }
+  });
+  
+  AST.Modifier.Shape.Alphabets.Augment({
+    preprocess: function (context) {
+      var modifier = context.env.modifierRepository.get(this.alphabets);
+      if (modifier !== undefined) {
+        return modifier.preprocess(context);
+      }
+    },
+    modifyShape: function (context, objectShape) {
+      var modifier = context.env.modifierRepository.get(this.alphabets);
+      if (modifier !== undefined) {
+        return modifier.modifyShape(context, objectShape);
+      }
       return objectShape;
     }
   });
@@ -9466,6 +10169,44 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var width = Math.abs(margin.x);
       var height = Math.abs(margin.y);
       return c.shrinkTo(width, height);
+    }
+  });
+  
+  AST.Modifier.Shape.Frame.Augment({
+    preprocess: function (context) {
+    },
+    modifyShape: function (context, objectShape) {
+      var env = context.env;
+      if (env.c === undefined) {
+        return;
+      }
+      
+      var main = this.main;
+      var radius = AST.ObjectBox.Frame.Radius.Default();
+      var colorName = "currentColor";
+      this.options.foreach(function (op) { radius = op.getRadius(radius); });
+      this.options.foreach(function (op) { colorName = op.getColorName(colorName); });
+      
+      var frameObject = AST.ObjectBox.Frame(radius, this.main);
+      var frameShape = frameObject.toDropFilledShape(context, colorName, env.c.isCircle());
+      
+      return xypic.Shape.CompositeShape(objectShape, frameShape);
+    }
+  });
+  AST.Modifier.Shape.Frame.Radius.Augment({
+    getRadius: function (radius) {
+      return AST.ObjectBox.Frame.Radius.Vector(this.vector);
+    },
+    getColorName: function (colorName) {
+      return colorName;
+    }
+  });
+  AST.Modifier.Shape.Frame.Color.Augment({
+    getRadius: function (radius) {
+      return radius;
+    },
+    getColorName: function (colorName) {
+      return this.colorName;
     }
   });
   
