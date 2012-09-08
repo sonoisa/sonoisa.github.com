@@ -113,7 +113,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   // パースエラーを表示できるよう、エラー処理をoverrideする。
   var tex_formatError = TEX.formatError;
   TEX.formatError = function (err, math, displaystyle, script) {
-    if (err.parseError !== undefined) {
+    if (err.xyjaxError !== undefined) {
       return err.toMML();
     } else {
       return tex_formatError(err, math, displaystyle, script);
@@ -611,6 +611,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   // <objectbox>
   AST.ObjectBox = MathJax.Object.Subclass({});
   // <objectbox> ::= '{' <text> '}'
+  // <objectbox> ::= <TeX box> '{' <text> '}'
   AST.ObjectBox.Text = AST.ObjectBox.Subclass({
     Init: function (math) {
       this.math = math;
@@ -619,6 +620,51 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     dirMain: function () { return undefined; },
     isDir: function () { return false; },
     toString: function () { return "{" + this.math.toString() + "}"; }
+  });
+  
+  // <objectbox> ::= '\txt' <width> <style> '{' <text> '}'
+  AST.ObjectBox.Txt = AST.ObjectBox.Subclass({
+    Init: function (width, textObject) {
+      this.width = width;
+      this.textObject = textObject;
+    },
+    toString: function () { return "\\txt" + this.width + "{" + this.textObject.toString() + "}"; }
+  });
+  AST.ObjectBox.Txt.Width = AST.ObjectBox.Subclass({
+  });
+  AST.ObjectBox.Txt.Width.Vector = AST.ObjectBox.Subclass({
+    Init: function (vector) {
+      this.vector = vector;
+    },
+    toString: function () { return this.vector.toString(); }
+  });
+  AST.ObjectBox.Txt.Width.Default = AST.ObjectBox.Subclass({
+    toString: function () { return ""; }
+  });
+  
+  // <objectbox> ::= '\object' <object>
+  AST.ObjectBox.WrapUpObject = AST.ObjectBox.Subclass({
+    Init: function (object) {
+      this.object = object;
+    },
+    toString: function () { return "\\object" + this.object.toString(); }
+  });
+  
+  // <objectbox> ::= '\composite' '{' <composite_object> '}'
+  // <composite_object> ::= <object> ( '*' <object> )*
+  AST.ObjectBox.CompositeObject = AST.ObjectBox.Subclass({
+    Init: function (objects) {
+      this.objects = objects;
+    },
+    toString: function () { return "\\composite{" + this.objects.mkString(" * ") + "}"; }
+  });
+  
+  // <objectbox> ::= '\xybox' '{' <pos> <decor> '}'
+  AST.ObjectBox.Xybox = AST.ObjectBox.Subclass({
+    Init: function (posDecor) {
+      this.posDecor = posDecor;
+    },
+    toString: function () { return "\\xybox{" + this.posDecor.toString() + "}"; }
   });
   
   // <objectbox> ::= '\cir' <radius> '{' <cir> '}'
@@ -778,9 +824,10 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   // <modifier>
-  AST.Modifier = MathJax.Object.Subclass({});
+  AST.Modifier = MathJax.Object.Subclass({
+  });
   // <modifier> ::= '!' <vector>
-  AST.Modifier.Vector = MathJax.Object.Subclass({
+  AST.Modifier.Vector = AST.Modifier.Subclass({
     Init: function (vector) {
       this.vector = vector;
     },
@@ -789,7 +836,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   // <modifier> ::= <add-op> <size>
   // <add-op> ::= '+' | '-' | '=' | '+=' | '-='
   // <size> ::= <vector> | <empty>
-  AST.Modifier.AddOp = MathJax.Object.Subclass({
+  AST.Modifier.AddOp = AST.Modifier.Subclass({
     Init: function (op, size) {
       this.op = op;
       this.size = size;
@@ -827,54 +874,66 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   // <shape> ::= '.' 
   //          | <frame_shape>
   //          | <alphabets>
+  //          | '=' <alphabets>
   //          | <empty>
   // <alphabets> ::= /[a-zA-Z]+/
-  AST.Modifier.Shape = MathJax.Object.Subclass({
+  AST.Modifier.Shape = MathJax.Object.Subclass({});
+  AST.Modifier.Shape.Point = AST.Modifier.Subclass({
+    toString: function () { return "[.]"; }
+  });
+  AST.Modifier.Shape.Rect = AST.Modifier.Subclass({
+    toString: function () { return "[]"; }
+  });
+  AST.Modifier.Shape.Alphabets = AST.Modifier.Subclass({
+    Init: function (alphabets) {
+      this.alphabets = alphabets;
+    },
+    toString: function () { return "[" + this.alphabets + "]"; }
+  });
+  AST.Modifier.Shape.DefineShape = AST.Modifier.Subclass({
     Init: function (shape) {
       this.shape = shape;
     },
     toString: function () { return "[" + this.shape + "]"; }
   });
-  AST.Modifier.Shape.Point = MathJax.Object.Subclass({
-    toString: function () { return "."; }
+  // 以下はxypic.ModifierRepositoryに格納されるもの
+  AST.Modifier.Shape.Circle = AST.Modifier.Subclass({
+    toString: function () { return "[o]"; }
   });
-  AST.Modifier.Shape.Rect = MathJax.Object.Subclass({
-    toString: function () { return ""; }
+  AST.Modifier.Shape.L = AST.Modifier.Subclass({
+    toString: function () { return "[l]"; }
   });
-  AST.Modifier.Shape.Alphabets = MathJax.Object.Subclass({
-    Init: function (alphabets) {
-      this.alphabets = alphabets;
-    },
-    toString: function () { return this.alphabets; }
+  AST.Modifier.Shape.R = AST.Modifier.Subclass({
+    toString: function () { return "[r]"; }
   });
-  // xypic.ModifierRepositoryに格納されるもの
-  AST.Modifier.Shape.Circle = MathJax.Object.Subclass({
-    toString: function () { return "o"; }
+  AST.Modifier.Shape.U = AST.Modifier.Subclass({
+    toString: function () { return "[u]"; }
   });
-  AST.Modifier.Shape.L = MathJax.Object.Subclass({
-    toString: function () { return "l"; }
+  AST.Modifier.Shape.D = AST.Modifier.Subclass({
+    toString: function () { return "[d]"; }
   });
-  AST.Modifier.Shape.R = MathJax.Object.Subclass({
-    toString: function () { return "r"; }
+  AST.Modifier.Shape.C = AST.Modifier.Subclass({
+    toString: function () { return "[c]"; }
   });
-  AST.Modifier.Shape.U = MathJax.Object.Subclass({
-    toString: function () { return "u"; }
-  });
-  AST.Modifier.Shape.D = MathJax.Object.Subclass({
-    toString: function () { return "d"; }
-  });
-  AST.Modifier.Shape.C = MathJax.Object.Subclass({
-    toString: function () { return "c"; }
-  });
-  AST.Modifier.Shape.ChangeColor = MathJax.Object.Subclass({
+  AST.Modifier.Shape.ChangeColor = AST.Modifier.Subclass({
     Init: function (colorName) {
       this.colorName = colorName;
     },
-    toString: function () { return this.colorName; }
+    toString: function () { return "[" + this.colorName + "]"; }
+  });
+  // ユーザ定義されたshape
+  AST.Modifier.Shape.CompositeModifiers = AST.Modifier.Subclass({
+    /**
+     * @param {List[AST.Modifier.Shape.*]} modifiers ユーザ定義されたmodifierのリスト
+     */
+    Init: function (modifiers) {
+      this.modifiers = modifiers;
+    },
+    toString: function () { return this.modifiers.mkString(""); }
   });
   
   // <frame_shape> ::= 'F' <frame_main> ( ':' ( <frame_radius_vector> | <color_name> ))*
-  AST.Modifier.Shape.Frame = MathJax.Object.Subclass({
+  AST.Modifier.Shape.Frame = AST.Modifier.Subclass({
     Init: function (main, options) {
       this.main = main;
       this.options = options;
@@ -901,8 +960,18 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }
   });
   
+  // <modifier> ::= 'i'
+  AST.Modifier.Invisible = AST.Modifier.Subclass({
+    toString: function () { return "i"; }
+  });
+  
+  // <modifier> ::= 'h'
+  AST.Modifier.Hidden = AST.Modifier.Subclass({
+    toString: function () { return "h"; }
+  });
+  
   // <modifier> ::= <nonempty-direction>
-  AST.Modifier.Direction = MathJax.Object.Subclass({
+  AST.Modifier.Direction = AST.Modifier.Subclass({
     Init: function (direction) {
       this.direction = direction;
     },
@@ -957,8 +1026,6 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   AST.Direction.RotCW = MathJax.Object.Subclass({
     toString: function () { return "^"; }
   });
-  // <direction0> ::=  'q' '{' <pos> <decor> '}'
-  // TODO: impl <direction> ::= q {<pos> <decor>}
   
   // <diag>
   AST.Diag = MathJax.Object.Subclass({});
@@ -1645,7 +1712,11 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     //          | '\dir' <dir>
     //          | '\cir' <cir_radius> '{' <cir> '}'
     //          | '\frm' <frame_radius> '{' <frame_main> '}'
+    //          | '\object' <object>
+    //          | '\composite' '{' <composite_object> '}'
+    //          | '\xybox' '{' <pos> <decor> '}'
     //          | <curve>
+    //          | <TeX box> '{' <text> '}'
     objectbox: memo(function () {
       return or(
         p.mathText,
@@ -1657,13 +1728,35 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         lit("\\frm").andr(p.frameRadius).andl(flit("{")).and(p.frameMain).andl(flit("}")).to(function (rm) {
           return AST.ObjectBox.Frame(rm.head, rm.tail);
         }),
-        p.curve
+        lit("\\object").andr(p.object).to(function (o) {
+          return AST.ObjectBox.WrapUpObject(o);
+        }),
+        lit("\\composite").and(flit("{")).andr(p.compositeObject).andl(flit("}")).to(function (os) {
+          return AST.ObjectBox.CompositeObject(os);
+        }),
+        lit("\\xybox").and(flit("{")).andr(p.posDecor).andl(flit("}")).to(function (pd) {
+          return AST.ObjectBox.Xybox(pd);
+        }),
+        p.txt,
+        p.curve,
+        regex(/^(\\[a-zA-Z][a-zA-Z0-9]+)/).andl(flit("{")).and(p.text).andl(flit("}")).to(function (bt) {
+          return p.toMath(bt.head + "{" + bt.tail + "}");
+        })
       );
+    }),
+    
+    // <composite_object> ::= <object> ( '*' <object> )*
+    compositeObject: memo(function () {
+      return p.object().and(fun(rep(lit("*").andr(p.object)))).to(function (oos) {
+        return oos.tail.prepend(oos.head);
+      });
     }),
     
     // <math-text> ::= '{' <text> '}'
     mathText: memo(function () {
-      return lit("{").andr(p.text).andl(felem("}")).to(p.toMath);
+      return lit("{").andr(p.text).andl(felem("}")).to(function (text) {
+        return p.toMath("\\hbox{$\\textstyle{" + text + "}$}");
+      });
     }),
     toMath: function (math) {
       var mml = TEX.Parse(math).mml();
@@ -1697,6 +1790,46 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       }).to(function (x) {
         return x.head + x.tail
       });
+    }),
+    
+    txt: memo(function () {
+      return lit("\\txt").andr(p.txtWidth).and(fun(regex(/^(\\[a-zA-Z][a-zA-Z0-9]+)?/))).andl(flit("{")).and(p.text).andl(flit("}")).to(function (wst) {
+          var width = wst.head.head;
+          var style = wst.head.tail;
+          var text = wst.tail;
+          var math;
+          var lines = text.split("\\\\");
+          if (lines.length <= 1) {
+            math = "\\hbox{" + style + "{" + text + "}}";
+          } else {
+            math = "\\hbox{$\\begin{array}{c}\n";
+            for (var i = 0; i < lines.length; i++) {
+              math += style + "{\\hbox{" + lines[i].replace(/(^[\r\n\s]+)|([\r\n\s]+$)/g, "") + "}}";
+              if (i != lines.length - 1) {
+                math += "\\\\\n";
+              }
+            }
+            math += "\\end{array}$}";
+          }
+          return AST.ObjectBox.Txt(width, p.toMath(math));
+        });
+    }),
+    
+    // <txt_width> ::= '<' <dimen> '>'
+    //          | <empty>
+    txtWidth: memo(function () {
+      return or(
+        lit('<').andr(p.dimen).andl(flit('>')).to(
+          function (x) {
+            return AST.Vector.Abs(x, x);
+          }
+        ).to(function (v) {
+          return AST.ObjectBox.Txt.Width.Vector(v);
+        }),
+        success("default").to(function () {
+          return AST.ObjectBox.Txt.Width.Default();
+        })
+      );
     }),
     
     // <dir> ::= <variant> '{' <main> '}'
@@ -1838,19 +1971,19 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     curvePoslist: memo(function () {
       return or(
         lit("&").andr(p.curvePoslist2).to(function (ps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.CurPos(), ps);
+          return ps.prepend(AST.ObjectBox.Curve.PosList.CurPos());
         }),
         lit("~@").andr(flit("&")).andr(p.curvePoslist2).to(function (ps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.AddStack(), ps);
+          return ps.prepend(AST.ObjectBox.Curve.PosList.AddStack());
         }),
         lit("~@").to(function () {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.AddStack(), FP.List.empty);
+          return FP.List.empty.prepend(AST.ObjectBox.Curve.PosList.AddStack());
         }),
         p.pos().andl(flit("&")).and(p.curvePoslist2).to(function (pps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.Pos(pps.head), pps.tail);
+          return pps.tail.prepend(AST.ObjectBox.Curve.PosList.Pos(pps.head));
         }),
         p.nonemptyPos().to(function (p) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.Pos(p), FP.List.empty);
+          return FP.List.empty.prepend(AST.ObjectBox.Curve.PosList.Pos(p));
         }),
         success("empty").to(function () {
           return FP.List.empty;
@@ -1860,28 +1993,30 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     curvePoslist2: memo(function () {
       return or(
         lit("&").andr(p.curvePoslist2).to(function (ps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.CurPos(), ps);
+          return ps.prepend(AST.ObjectBox.Curve.PosList.CurPos());
         }),
         lit("~@").andr(flit("&")).andr(p.curvePoslist2).to(function (ps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.AddStack(), ps);
+          return ps.prepend(AST.ObjectBox.Curve.PosList.AddStack());
         }),
         lit("~@").to(function () {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.AddStack(), FP.List.empty);
+          return FP.List.empty.prepend(AST.ObjectBox.Curve.PosList.AddStack());
         }),
         p.nonemptyPos().andl(flit("&")).and(p.curvePoslist2).to(function (pps) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.Pos(pps.head), pps.tail);
+          return pps.tail.prepend(AST.ObjectBox.Curve.PosList.Pos(pps.head));
         }),
         p.nonemptyPos().to(function (p) {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.Pos(p), FP.List.empty);
+          return FP.List.empty.prepend(AST.ObjectBox.Curve.PosList.Pos(p));
         }),
         success("empty").to(function () {
-          return FP.List.Cons(AST.ObjectBox.Curve.PosList.CurPos(), FP.List.empty);
+          return FP.List.empty.prepend(AST.ObjectBox.Curve.PosList.CurPos());
         })
       );
     }),
     
     // <modifier> ::= '!' <vector>
     //            |   '[' <shape> ']'
+    //            |   'i'
+    //            |   'h'
     //            |   <add-op> <size>
     //            |   <nonemptyDirection>
     modifier: memo(function () {
@@ -1890,7 +2025,13 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           return AST.Modifier.Vector(v);
         }),
         lit("[").andr(p.shape).andl(flit("]")).to(function (s) {
-          return AST.Modifier.Shape(s);
+          return s;
+        }),
+        lit("i").to(function (v) {
+          return AST.Modifier.Invisible();
+        }),
+        lit("h").to(function (v) {
+          return AST.Modifier.Hidden();
         }),
         p.addOp().and(p.size).to(function (os) {
           return AST.Modifier.AddOp(os.head, os.tail);
@@ -1927,13 +2068,17 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     // <shape> ::= '.' 
     //          | <frame_shape>
     //          | <alphabets>
+    //          | '=' <alphabets>
     //          | <empty>
     shape: memo(function () {
       return or(
         lit(".").to(function () { return AST.Modifier.Shape.Point(); }),
         p.frameShape,
-        p.alphabets().to(function (c) {
-          return AST.Modifier.Shape.Alphabets(c);
+        p.alphabets().to(function (name) {
+          return AST.Modifier.Shape.Alphabets(name);
+        }),
+        lit("=").andr(p.alphabets).to(function (name) {
+          return AST.Modifier.Shape.DefineShape(name);
         }),
         success("rect").to(function () { return AST.Modifier.Shape.Rect(); })
       );
@@ -2131,7 +2276,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       var q = memo(function () { return p.path2(fc) });
       return or(
         p.path3().and(q).to(function (ep) {
-          return FP.List.Cons(ep.head, ep.tail);
+          return ep.tail.prepend(ep.head);
         }),
         seq('~', '{', q, '}').to(function (newFc) {
           return newFc.head.tail;
@@ -2139,7 +2284,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           return p.path2(newFc);
         }),
         p.segment().to(function (s) {
-          return FP.List.Cons(AST.Command.Path.LastSegment(s), FP.List.empty);
+          return FP.List.empty.prepend(AST.Command.Path.LastSegment(s));
         }),
         success(fc).to(function (fc) {
           return fc;
@@ -2293,7 +2438,18 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }
   });
   
-  FP.Parsers.ParseError = MathJax.Object.Subclass({
+  xypic.ExecutionError = MathJax.Object.Subclass({
+    Init: function (message) {
+      this.message = message;
+    },
+    toMML: function () {
+      return MML.merror(MML.mtext(this.message));
+    },
+    texError: true,
+    xyjaxError: true
+  });
+  
+  xypic.ParseError = MathJax.Object.Subclass({
     Init: function (parseResult) {
       this.parseResult = parseResult;
     },
@@ -2307,7 +2463,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       return MML.merror(MML.mtext('parse error at or near "'), MML.mtext(left).With({color:"black"}), MML.mtext(mid).With({color:"red"}), MML.mtext(right).With({color:"black"}), MML.mtext('"'));
     },
     texError: true,
-    parseError: true
+    xyjaxError: true
   });
   
   TEX.Parse.Augment({
@@ -2319,7 +2475,6 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         var input = FP.StringReader(this.string, this.i);
         var result = FP.Parsers.parse(p.xy(), input);
         this.i = result.next.offset;
-//        console.log(result.toString());
       } catch (e) {
         console.log(e.toString());
         throw e;
@@ -2332,7 +2487,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           this.Push(MML.merror("Unsupported Browser. Please open with Firefox/Safari/Chrome/Opera"));
         }
       } else {
-        throw FP.Parsers.ParseError(result);
+        throw xypic.ParseError(result);
       }
       
       return begin;
@@ -2390,7 +2545,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   var XLINKNS = "http://www.w3.org/1999/xlink";
   var VMLNS = "urn:schemas-microsoft-com:vml";
   var vmlns = "mjxvml";
-  
+
   var em2px = function (n) { return Math.round(n * HTMLCSS.em * 100) / 100; }
   
   var memoize = function (object, funcName) {
@@ -2415,26 +2570,17 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     Init: function () {
       this.userModifierMap = {};
     },
-    get: function (modifierName) {
-      var modifier = xypic.ModifierRepository.embeddedModifierMap[modifierName];
+    get: function (shapeName) {
+      var modifier = xypic.ModifierRepository.embeddedModifierMap[shapeName];
       if (modifier !== undefined) {
         return modifier;
       }
-      return this.userModifierMap[modifierName];
+      return this.userModifierMap[shapeName];
     },
-    put: function (modifierName, modifier) {
+    put: function (shapeName, modifier) {
       if (xypic.ModifierRepository.embeddedModifierMap[shapeName] === undefined) {
-        this.userModifierMap[modifierName] = modifier;
+        this.userModifierMap[shapeName] = modifier;
       }
-    },
-    duplicate: function () {
-      var newRepo = xypic.ModifierRepository();
-      for (var attr in this.userModifierMap) {
-        if (this.userModifierMap.hasOwnProperty(attr)) {
-          newRepo.userModifierMap[attr] = this.userModifierMap[attr];
-        }
-      }
-      return newRepo;
     }
   }, {
     embeddedModifierMap: {
@@ -2593,6 +2739,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       "yellowgreen":AST.Modifier.Shape.ChangeColor("yellowgreen")
     }
   });
+  
+  // user defined shapes are global in scope.
+  var modifierRepository = xypic.ModifierRepository();
   
   var svgForDebug;
   var svgForTestLayout;
@@ -2815,7 +2964,12 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
      * @param {xypic.Shape} shape 追加する図形
      */
     appendShapeToFront: function (shape) {
-      this.shape = xypic.Shape.CompositeShape(shape, this.shape);
+      if (shape.isNone) {
+      } else if (this.shape.isNone) {
+        this.shape = shape;
+      } else {
+        this.shape = xypic.Shape.CompositeShape(shape, this.shape);
+      }
     },
     
     /**
@@ -2823,9 +2977,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
      * @param {xypic.Shape} shape 追加する図形
      */
     appendShapeToBack: function (shape) {
-      this.shape = xypic.Shape.CompositeShape(this.shape, shape);
+      if (shape.isNone) {
+      } else if (this.shape.isNone) {
+        this.shape = shape;
+      } else {
+        this.shape = xypic.Shape.CompositeShape(this.shape, shape);
+      }
     }
-  }, {});
+  });
   
   // HTML-CSS Text Objects
   var textObjects;
@@ -3344,6 +3503,12 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
      * @returns {xypic.Frame.Rect} Bounding Box (ない場合はundefined)
      */
     // getBoundingBox: function () {}
+    
+    /**
+     * 中身が空であるかどうかを返す。
+     * @returns {boolean} true:空である、false:空でない
+     */
+    isNone: false
   });
   
   xypic.Shape.NoneShape = xypic.Shape.Subclass({
@@ -3354,7 +3519,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     toString: function () {
       return "NoneShape";
-    }
+    },
+    isNone: true
   });
   
   xypic.Shape.Augment({}, {
@@ -3421,6 +3587,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.color = color;
       this.shape = shape;
       memoize(this, "getBoundingBox");
+      console.log("color:" + this.color);
     },
     draw: function (svg) {
       var g = svg.createChangeColorGroup(this.color);
@@ -5480,7 +5647,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     length: function (t) {
       if (t < 0 || t > 1) {
-        throw Error("illegal cubic Bezier parameter t:"+t);
+        throw xypic.ExecutionError("illegal cubic Bezier parameter t:"+t);
       }
       this.buildLengthArray();
       
@@ -6422,7 +6589,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     divide: function (t) {
       if (t < 0 || t > 1) {
-        throw Error("illegal quadratic Bezier parameter t:"+t);
+        throw xypic.ExecutionError("illegal quadratic Bezier parameter t:"+t);
       }
       
       // find starting edge point
@@ -6689,7 +6856,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     divide: function (t) {
       if (t < 0 || t > 1) {
-        throw Error("illegal cubic Bezier parameter t:"+t);
+        throw xypic.ExecutionError("illegal cubic Bezier parameter t:"+t);
       }
       
       // find starting edge point
@@ -6954,7 +7121,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     divide: function (t) {
       if (t < 0 || t > 1) {
-        throw Error("illegal cubic Bezier parameter t:"+t);
+        throw xypic.ExecutionError("illegal cubic Bezier parameter t:"+t);
       } else if (t === 0) {
         return [xypic.Curve.CubicBeziers([]), this];
       } else if (t === 1) {
@@ -7072,7 +7239,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   xypic.Curve.CubicBSpline = xypic.Curve.Subclass({
     Init: function (s, intCps, e) {
       if (intCps.length < 1) {
-        throw Error("the number of internal control points of cubic B-spline must be greater than or equal to 1");
+        throw xypic.ExecutionError("the number of internal control points of cubic B-spline must be greater than or equal to 1");
       }
       
       var controlPoints = [];
@@ -8037,7 +8204,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.p = this.c = xypic.Env.originPosition;
       this.shouldCapturePos = false;
       this.capturedPositions = FP.List.empty;
-      this.modifierRepository = xypic.ModifierRepository();
     },
     duplicate: function () {
       var newEnv = xypic.Env();
@@ -8046,7 +8212,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     saveState: function () {
       var currentState = this.duplicate();
-      this.stateStack = FP.List.Cons(currentState, this.stateStack);
+      this.stateStack = this.stateStack.prepend(currentState);
     },
     restoreState: function () {
       if (!this.stateStack.isEmpty) {
@@ -8075,7 +8241,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.c = t;
     },
     enterStackFrame: function () {
-      this.stackFrames = FP.List.Cons(this.stack, this.stackFrames);
+      this.stackFrames = this.stackFrames.prepend(this.stack);
       this.initStack();
     },
     leaveStackFrame: function () {
@@ -8101,17 +8267,17 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     capturePosition: function (pos) {
       if (this.shouldCapturePos && pos !== undefined) {
-        this.capturedPositions = FP.List.Cons(pos, this.capturedPositions);
+        this.capturedPositions = this.capturedPositions.prepend(pos);
       }
     },
     pushPos: function (pos) {
       if (pos !== undefined) {
-        this.stack = FP.List.Cons(pos, this.stack);
+        this.stack = this.stack.prepend(pos);
       }
     },
     popPos: function () {
       if (this.stack.isEmpty) {
-        throw Error("cannot pop from the empty stack");
+        throw xypic.ExecutionError("cannot pop from the empty stack");
       } else {
         var pos = this.stack.head;
         this.stack = this.stack.tail;
@@ -8130,7 +8296,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     lookupPos: function (id) {
       var pos = this.savedPosition[id];
       if (pos === undefined) {
-        throw Error('id "' + id + '" not found');
+        throw xypic.ExecutionError('id "' + id + '" not found');
       } else {
         return pos;
       }
@@ -8161,7 +8327,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           to.savedPosition[id] = from.savedPosition[id];
         }
       }
-      to.modifierRepository = from.modifierRepository.duplicate();
     }
   });
   
@@ -8547,22 +8712,31 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       if (env.c === undefined) {
         return xypic.Shape.none;
       }
-      var tmpEnv = env.duplicate();
+      
       var modifiers = this.modifiers;
-      var subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
-      modifiers.foreach(function (m) { m.preprocess(subcontext); });
-      var objectShape = this.object.toDropShape(subcontext);
-      var objectBoundingBox = tmpEnv.c;
-      if (objectBoundingBox === undefined) {
-        return xypic.Shape.none;
+      if (modifiers.isEmpty) {
+        return this.object.toDropShape(context);
+      } else {
+        var tmpEnv = env.duplicate();
+        var subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
+        var reversedProcessedModifiers = FP.List.empty;
+        modifiers.foreach(function (m) {
+          m.preprocess(subcontext, reversedProcessedModifiers);
+          reversedProcessedModifiers = reversedProcessedModifiers.prepend(m);
+        });
+        var objectShape = this.object.toDropShape(subcontext);
+        var objectBoundingBox = tmpEnv.c;
+        if (objectBoundingBox === undefined) {
+          return xypic.Shape.none;
+        }
+        tmpEnv = env.duplicate(); // restore angle
+        tmpEnv.c = objectBoundingBox;
+        subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
+        objectShape = modifiers.head.modifyShape(subcontext, objectShape, modifiers.tail);
+        context.appendShapeToFront(objectShape);
+        env.c = tmpEnv.c.move(env.c.x, env.c.y);
+        return objectShape;
       }
-      tmpEnv = env.duplicate(); // restore angle
-      tmpEnv.c = objectBoundingBox;
-      subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
-      modifiers.foreach(function (m) { objectShape = m.modifyShape(subcontext, objectShape); });
-      context.appendShapeToFront(objectShape);
-      env.c = tmpEnv.c.move(env.c.x, env.c.y);
-      return objectShape;
     },
     toConnectShape: function (context) {
       return this.object.toConnectShape(context, this);
@@ -8577,16 +8751,15 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       return dropShape.getBoundingBox();
     }
   });
- 
-  AST.ObjectBox.Text.Augment({
-    toDropShape: function (context) {
-      var textShape = xypic.Shape.TextShape(context.env.c, this.math, svgForTestLayout);
-      context.appendShapeToFront(textShape);
-      context.env.c = textShape.getBoundingBox();
-      return textShape;
-    },
+  
+  AST.ObjectBox.Augment({
     toConnectShape: function (context, object) {
       var env = context.env;
+      if (env.c === undefined || env.p === undefined) {
+        env.angle = 0;
+        env.mostRecentLine = xypic.MostRecentLine.none;
+        return xypic.Shape.none;
+      }
       var s = env.p.edgePoint(env.c.x, env.c.y);
       var e = env.c.edgePoint(env.p.x, env.p.y);
       if (s.x !== e.x || s.y !== e.y) {
@@ -8638,6 +8811,94 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       env.angle = 0;
       env.mostRecentLine = xypic.MostRecentLine.none;
       return xypic.Shape.none;
+    }
+  });
+  
+  AST.ObjectBox.WrapUpObject.Augment({
+    toDropShape: function (context) {
+      return this.object.toDropShape(context);
+    },
+    toConnectShape: function (context, object) {
+      return this.object.toConnectShape(context, object);
+    }
+  });
+  
+  AST.ObjectBox.CompositeObject.Augment({
+    toDropShape: function (context) {
+      var env = context.env;
+      var origC = env.c;
+      if (origC === undefined) {
+        return xypic.Shape.none;
+      }
+      var c = origC;
+      var tmpEnv = env.duplicate();
+      var subcontext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
+      this.objects.foreach(function (obj) {
+        tmpEnv.c = origC;
+        obj.toDropShape(subcontext);
+        c = xypic.Frame.combineRect(c, tmpEnv.c);
+      });
+      env.c = c;
+      var compositeShape = subcontext.shape;
+      context.appendShapeToFront(compositeShape);
+      return compositeShape;
+    }
+  });
+  
+  AST.ObjectBox.Xybox.Augment({
+    toDropShape: function (context) {
+      var env = context.env;
+      var c = env.c;
+      if (c === undefined) {
+        return xypic.Shape.none;
+      }
+      var subenv = xypic.Env();
+      var subcontext = xypic.DrawingContext(xypic.Shape.none, subenv);
+      this.posDecor.toShape(subcontext);
+      var subshape = subcontext.shape;
+      var bbox = subshape.getBoundingBox();
+      if (bbox === undefined) {
+        return xypic.Shape.none;
+      }
+      var l = Math.max(0, bbox.l - bbox.x);
+      var r = Math.max(0, bbox.r + bbox.x);
+      var u = Math.max(0, bbox.u + bbox.y);
+      var d = Math.max(0, bbox.d - bbox.y);
+      env.c = xypic.Frame.Rect(c.x, c.y, { l:l, r:r, u:u, d:d });
+      var objectShape = xypic.Shape.TranslateShape(c.x, c.y, subshape);
+      context.appendShapeToFront(objectShape);
+      return objectShape;
+    }
+  });
+  
+  AST.ObjectBox.Text.Augment({
+    toDropShape: function (context) {
+      var textShape = xypic.Shape.TextShape(context.env.c, this.math, svgForTestLayout);
+      context.appendShapeToFront(textShape);
+      context.env.c = textShape.getBoundingBox();
+      return textShape;
+    }
+  });
+  
+  AST.ObjectBox.Txt.Augment({
+    toDropShape: function (context) {
+      if (context.env.c === undefined) {
+        return xypic.Shape.none;
+      }
+      // TODO change width
+      var textShape = this.textObject.toDropShape(context);
+      return textShape;
+    }
+  });
+  AST.ObjectBox.Txt.Width.Vector.Augment({
+    width: function (context) {
+      return this.vector.xy().x;
+    }
+  });
+  AST.ObjectBox.Txt.Width.Vector.Augment({
+    width: function (context) {
+      var c = context.env.c;
+      return c.r + c.l;
     }
   });
   
@@ -9916,211 +10177,257 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
-  AST.Modifier.Vector.Augment({
-    preprocess: function (context) {
-    },
-    modifyShape: function (context, objectShape) {
-      var d = this.vector.xy(context);
-      var env = context.env;
-      env.c = env.c.move(env.c.x - d.x, env.c.y - d.y);
-      return xypic.Shape.TranslateShape(-d.x, -d.y, objectShape);
+  AST.Modifier.Augment({
+    proceedModifyShape: function (context, objectShape, restModifiers) {
+      if (restModifiers.isEmpty) {
+        return objectShape;
+      }
+      return restModifiers.head.modifyShape(context, objectShape, restModifiers.tail);
     }
   });
   
-  AST.Modifier.Shape.Augment({
-    preprocess: function (context) {
-      this.shape.preprocess(context);
+  AST.Modifier.Vector.Augment({
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
-      return this.shape.modifyShape(context, objectShape);
+    modifyShape: function (context, objectShape, restModifiers) {
+      var d = this.vector.xy(context);
+      var env = context.env;
+      env.c = env.c.move(env.c.x - d.x, env.c.y - d.y);
+      objectShape = xypic.Shape.TranslateShape(-d.x, -d.y, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.Point.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var c = context.env.c;
       context.env.c = xypic.Frame.Point(c.x, c.y);
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.Rect.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var c = context.env.c;
       context.env.c = xypic.Frame.Rect(c.x, c.y, { l:c.l, r:c.r, u:c.u, d:c.d });
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.Circle.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var c = context.env.c;
       context.env.c = xypic.Frame.Ellipse(c.x, c.y, c.l, c.r, c.u, c.d);
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.L.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
       var c = env.c;
-      if (c === undefined) {
-        return objectShape;
+      if (c !== undefined) {
+        var width = c.r + c.l;
+        var height = c.u + c.d;
+        var dx, dy;
+        if (width < height) {
+          dx = (c.l - c.r) / 2;
+          dy = (c.d - c.u) / 2;
+        } else {
+          dx = -c.r + height / 2;
+          dy = (c.d - c.u) / 2;
+        }
+        env.c = env.c.shiftFrame(dx, dy);
+        objectShape = xypic.Shape.TranslateShape(dx, dy, objectShape);
       }
-      var width = c.r + c.l;
-      var height = c.u + c.d;
-      var dx, dy;
-      if (width < height) {
-        dx = (c.l - c.r) / 2;
-        dy = (c.d - c.u) / 2;
-      } else {
-        dx = -c.r + height / 2;
-        dy = (c.d - c.u) / 2;
-      }
-      env.c = env.c.shiftFrame(dx, dy);
-      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.R.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
       var c = env.c;
-      if (c === undefined) {
-        return objectShape;
+      if (c !== undefined) {
+        var width = c.r + c.l;
+        var height = c.u + c.d;
+        var dx, dy;
+        if (width < height) {
+          dx = (c.l - c.r) / 2;
+          dy = (c.d - c.u) / 2;
+        } else {
+          dx = c.l - height / 2;
+          dy = (c.d - c.u) / 2;
+        }
+        env.c = env.c.shiftFrame(dx, dy);
+        objectShape = xypic.Shape.TranslateShape(dx, dy, objectShape);
       }
-      var width = c.r + c.l;
-      var height = c.u + c.d;
-      var dx, dy;
-      if (width < height) {
-        dx = (c.l - c.r) / 2;
-        dy = (c.d - c.u) / 2;
-      } else {
-        dx = c.l - height / 2;
-        dy = (c.d - c.u) / 2;
-      }
-      env.c = env.c.shiftFrame(dx, dy);
-      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.U.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
       var c = env.c;
-      if (c === undefined) {
-        return objectShape;
+      if (c !== undefined) {
+        var width = c.r + c.l;
+        var height = c.u + c.d;
+        var dx, dy;
+        if (width > height) {
+          dx = (c.l - c.r) / 2;
+          dy = (c.d - c.u) / 2;
+        } else {
+          dx = (c.l - c.r) / 2;
+          dy = c.d - width / 2;
+        }
+        env.c = env.c.shiftFrame(dx, dy);
+        objectShape = xypic.Shape.TranslateShape(dx, dy, objectShape);
       }
-      var width = c.r + c.l;
-      var height = c.u + c.d;
-      var dx, dy;
-      if (width > height) {
-        dx = (c.l - c.r) / 2;
-        dy = (c.d - c.u) / 2;
-      } else {
-        dx = (c.l - c.r) / 2;
-        dy = c.d - width / 2;
-      }
-      env.c = env.c.shiftFrame(dx, dy);
-      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.D.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
       var c = env.c;
-      if (c === undefined) {
-        return objectShape;
+      if (c !== undefined) {
+        var width = c.r + c.l;
+        var height = c.u + c.d;
+        var dx, dy;
+        if (width > height) {
+          dx = (c.l - c.r) / 2;
+          dy = (c.d - c.u) / 2;
+        } else {
+          dx = (c.l - c.r) / 2;
+          dy = -c.u + width / 2;
+        }
+        env.c = env.c.shiftFrame(dx, dy);
+        objectShape = xypic.Shape.TranslateShape(dx, dy, objectShape);
       }
-      var width = c.r + c.l;
-      var height = c.u + c.d;
-      var dx, dy;
-      if (width > height) {
-        dx = (c.l - c.r) / 2;
-        dy = (c.d - c.u) / 2;
-      } else {
-        dx = (c.l - c.r) / 2;
-        dy = -c.u + width / 2;
-      }
-      env.c = env.c.shiftFrame(dx, dy);
-      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.C.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
       var c = env.c;
-      if (c === undefined) {
-        return objectShape;
+      if (c !== undefined) {
+        var dx, dy;
+        dx = (c.l - c.r) / 2;
+        dy = (c.d - c.u) / 2;
+        env.c = env.c.shiftFrame(dx, dy);
+        objectShape = xypic.Shape.TranslateShape(dx, dy, objectShape);
       }
-      var dx, dy;
-      dx = (c.l - c.r) / 2;
-      dy = (c.d - c.u) / 2;
-      env.c = env.c.shiftFrame(dx, dy);
-      return xypic.Shape.TranslateShape(dx, dy, objectShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Shape.ChangeColor.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
+      objectShape = this.proceedModifyShape(context, objectShape, restModifiers);
       return xypic.Shape.ChangeColorShape(this.colorName, objectShape);
     }
   });
   
   AST.Modifier.Shape.Alphabets.Augment({
-    preprocess: function (context) {
-      var modifier = context.env.modifierRepository.get(this.alphabets);
+    preprocess: function (context, reversedProcessedModifiers) {
+      var modifier = modifierRepository.get(this.alphabets);
       if (modifier !== undefined) {
-        return modifier.preprocess(context);
+        return modifier.preprocess(context, reversedProcessedModifiers);
+      } else {
+        // TODO 存在しないshape名が指定されたらエラーを発生させる。
       }
     },
-    modifyShape: function (context, objectShape) {
-      var modifier = context.env.modifierRepository.get(this.alphabets);
+    modifyShape: function (context, objectShape, restModifiers) {
+      var modifier = modifierRepository.get(this.alphabets);
       if (modifier !== undefined) {
-        return modifier.modifyShape(context, objectShape);
+        objectShape = modifier.modifyShape(context, objectShape, restModifiers);
       }
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
+    }
+  });
+  
+  AST.Modifier.Shape.DefineShape.Augment({
+    preprocess: function (context, reversedProcessedModifiers) {
+      var processedModifiers = reversedProcessedModifiers.reverse();
+      modifierRepository.put(this.shape, AST.Modifier.Shape.CompositeModifiers(processedModifiers));
+    },
+    modifyShape: function (context, objectShape, restModifiers) {
+      return this.proceedModifyShape(context, objectShape, restModifiers);
+    }
+  });
+  
+  // ユーザ定義されたshape
+  AST.Modifier.Shape.CompositeModifiers.Augment({
+    preprocess: function (context, reversedProcessedModifiers) {
+      this.modifiers.foreach(function (m) {
+        m.preprocess(context, reversedProcessedModifiers);
+        reversedProcessedModifiers = reversedProcessedModifiers.prepend(m);
+      });
+    },
+    modifyShape: function (context, objectShape, restModifiers) {
+      objectShape = this.proceedModifyShape(context, objectShape, this.modifiers);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
+    }
+  });
+  
+  AST.Modifier.Invisible.Augment({
+    preprocess: function (context, reversedProcessedModifiers) {
+    },
+    modifyShape: function (context, objectShape, restModifiers) {
+      objectShape = this.proceedModifyShape(context, objectShape, restModifiers);
+      return xypic.Shape.none;
+    }
+  });
+  
+  AST.Modifier.Hidden.Augment({
+    preprocess: function (context, reversedProcessedModifiers) {
+    },
+    modifyShape: function (context, objectShape, restModifiers) {
+      // TODO implement hidden modifier
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
   AST.Modifier.Direction.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
       context.env.angle = this.direction.angle(context);
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       context.env.angle = this.direction.angle(context);
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);;
     }
   });
   
   AST.Modifier.AddOp.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var c = context.env.c;
       context.env.c = this.op.apply(this.size, c, context);
       context.appendShapeToFront(xypic.Shape.InvisibleBoxShape(context.env.c));
-      return objectShape;
+      return this.proceedModifyShape(context, objectShape, restModifiers);;
     }
   });
   AST.Modifier.AddOp.Grow.Augment({
@@ -10173,24 +10480,22 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   AST.Modifier.Shape.Frame.Augment({
-    preprocess: function (context) {
+    preprocess: function (context, reversedProcessedModifiers) {
     },
-    modifyShape: function (context, objectShape) {
+    modifyShape: function (context, objectShape, restModifiers) {
       var env = context.env;
-      if (env.c === undefined) {
-        return;
+      if (env.c !== undefined) {
+        var main = this.main;
+        var radius = AST.ObjectBox.Frame.Radius.Default();
+        var colorName = "currentColor";
+        this.options.foreach(function (op) { radius = op.getRadius(radius); });
+        this.options.foreach(function (op) { colorName = op.getColorName(colorName); });
+        
+        var frameObject = AST.ObjectBox.Frame(radius, this.main);
+        var frameShape = frameObject.toDropFilledShape(context, colorName, env.c.isCircle());
+        objectShape = xypic.Shape.CompositeShape(objectShape, frameShape);
       }
-      
-      var main = this.main;
-      var radius = AST.ObjectBox.Frame.Radius.Default();
-      var colorName = "currentColor";
-      this.options.foreach(function (op) { radius = op.getRadius(radius); });
-      this.options.foreach(function (op) { colorName = op.getColorName(colorName); });
-      
-      var frameObject = AST.ObjectBox.Frame(radius, this.main);
-      var frameShape = frameObject.toDropFilledShape(context, colorName, env.c.isCircle());
-      
-      return xypic.Shape.CompositeShape(objectShape, frameShape);
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   AST.Modifier.Shape.Frame.Radius.Augment({
