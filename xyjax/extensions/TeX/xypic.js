@@ -1800,7 +1800,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           var math;
           var lines = text.split("\\\\");
           if (lines.length <= 1) {
-            math = "\\hbox{" + style + "{" + text + "}}";
+            math = style + "{\\hbox{" + text + "}}";
           } else {
             math = "\\hbox{$\\begin{array}{c}\n";
             for (var i = 0; i < lines.length; i++) {
@@ -2476,7 +2476,6 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         var result = FP.Parsers.parse(p.xy(), input);
         this.i = result.next.offset;
       } catch (e) {
-        console.log(e.toString());
         throw e;
       }
       
@@ -3199,6 +3198,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     rotate: function (angle) {
       return this;
     },
+    contains: function (point) {
+      return false;
+    },
     toString: function () {
       return "{x:"+this.x+", y:"+this.y+"}";
     }
@@ -3324,6 +3326,11 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         d:-Math.min(lu.y, ld.y, ru.y, rd.y)
       });
     },
+    contains: function (point) {
+      var x = point.x;
+      var y = point.y;
+      return (x >= this.x - this.l) && (x <= this.x + this.r) && (y >= this.y - this.d) && (y <= this.y + this.u);
+    },
     toString: function () {
       return "{x:"+this.x+", y:"+this.y+", l:"+this.l+", r:"+this.r+", u:"+this.u+", d:"+this.d+"}";
     }
@@ -3365,35 +3372,50 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var r = this.r;
         var u = this.u;
         var d = this.d;
-        var cx = this.x + (r - l) / 2;
-        var cy = this.y + (u - d) / 2;
+        var x0 = this.x;
+        var y0 = this.y;
+        var cx = x0 + (r - l) / 2;
+        var cy = y0 + (u - d) / 2;
         var rx = (l + r) / 2;
         var ry = (u + d) / 2;
         
-        var delta = pi / 180; // overlapping
-        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
-        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
-        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
-        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
-        
-        var line = xypic.CurveSegment.Line(xypic.Frame.Point(this.x, this.y), xypic.Frame.Point(x, y), 0, 1);
-        
-        var intersec = [];
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc1, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, line));
-        
-        if (intersec.length === 0) {
+        var dx = x - x0;
+        var dy = y - y0;
+        var a0 = dy;
+        var b0 = -dx;
+        var c0 = dx * y0 - dy * x0;
+        var a = a0 * rx;
+        var b = b0 * ry;
+        var c = c0 * rx + (rx - ry) * b0 * cy;
+        var aabb = a * a + b * b;
+        var d = a * cx + b * cy + c;
+        var e = -d / aabb;
+        var ff = aabb * rx * rx - d * d;
+        if (ff < 0) {
           return xypic.Frame.Point(this.x, this.y - this.d);
+        }
+        var f = Math.sqrt(ff) / aabb;
+        
+        var xp = a * e + b * f + cx;
+        var yp = b * e - a * f + cy;
+        var xm = a * e - b * f + cx;
+        var ym = b * e + a * f + cy;
+        
+        var eps = ry / rx;
+        var xp0 = xp;
+        var yp0 = eps * (yp - cy) + cy;
+        var xm0 = xm;
+        var ym0 = eps * (ym - cy) + cy;
+        
+        var dxp = xp0 - x;
+        var dyp = yp0 - y;
+        var dxm = xm0 - x;
+        var dym = ym0 - y;
+        
+        if (dxp * dxp + dyp * dyp < dxm * dxm + dym * dym) {
+          return xypic.Frame.Point(xp0, yp0);
         } else {
-          t = (intersec[0][1].min + intersec[0][1].max)/2;
-          for (var i = 1; i < intersec.length; i++) { 
-            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
-            if (t > ttmp) { t = ttmp; }
-          }
-          var xy = line.position(t);
-          return xypic.Frame.Point(xy.x, xy.y);
+          return xypic.Frame.Point(xm0, ym0);
         }
       }
     },
@@ -3418,35 +3440,50 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var r = this.r;
         var u = this.u;
         var d = this.d;
-        var cx = this.x + (r - l) / 2;
-        var cy = this.y + (u - d) / 2;
+        var x0 = this.x;
+        var y0 = this.y;
+        var cx = x0 + (r - l) / 2;
+        var cy = y0 + (u - d) / 2;
         var rx = (l + r) / 2;
         var ry = (u + d) / 2;
         
-        var delta = pi / 180; // overlapping
-        var arc0 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi - delta, -pi / 2 + delta);
-        var arc1 = xypic.CurveSegment.Arc(cx, cy, rx, ry, -pi / 2 - delta, 0 + delta);
-        var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
-        var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
-        
-        var line = xypic.CurveSegment.Line(xypic.Frame.Point(this.x, this.y), xypic.Frame.Point(x, y), -1, 0);
-        
-        var intersec = [];
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc1, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, line));
-        intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, line));
-        
-        if (intersec.length === 0) {
+        var dx = x - x0;
+        var dy = y - y0;
+        var a0 = dy;
+        var b0 = -dx;
+        var c0 = dx * y0 - dy * x0;
+        var a = a0 * rx;
+        var b = b0 * ry;
+        var c = c0 * rx + (rx - ry) * b0 * cy;
+        var aabb = a * a + b * b;
+        var d = a * cx + b * cy + c;
+        var e = -d / aabb;
+        var ff = aabb * rx * rx - d * d;
+        if (ff < 0) {
           return xypic.Frame.Point(this.x, this.y - this.d);
+        }
+        var f = Math.sqrt(ff) / aabb;
+        
+        var xp = a * e + b * f + cx;
+        var yp = b * e - a * f + cy;
+        var xm = a * e - b * f + cx;
+        var ym = b * e + a * f + cy;
+        
+        var eps = ry / rx;
+        var xp0 = xp;
+        var yp0 = eps * (yp - cy) + cy;
+        var xm0 = xm;
+        var ym0 = eps * (ym - cy) + cy;
+        
+        var dxp = xp0 - x;
+        var dyp = yp0 - y;
+        var dxm = xm0 - x;
+        var dym = ym0 - y;
+        
+        if (dxp * dxp + dyp * dyp < dxm * dxm + dym * dym) {
+          return xypic.Frame.Point(xm0, ym0);
         } else {
-          t = (intersec[0][1].min + intersec[0][1].max)/2;
-          for (var i = 1; i < intersec.length; i++) { 
-            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
-            if (t > ttmp) { t = ttmp; }
-          }
-          var xy = line.position(t);
-          return xypic.Frame.Point(xy.x, xy.y);
+          return xypic.Frame.Point(xp0, yp0);
         }
       }
     },
@@ -3484,11 +3521,91 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     rotate: function (angle) {
       return this;
     },
+    contains: function (point) {
+      var x = point.x;
+      var y = point.y;
+      if (this.isPoint()) {
+        return false;
+      }
+      var l = this.l;
+      var r = this.r;
+      var u = this.u;
+      var d = this.d;
+      var x0 = this.x;
+      var y0 = this.y;
+      var cx = x0 + (r - l) / 2;
+      var cy = y0 + (u - d) / 2;
+      var rx = (l + r) / 2;
+      var ry = (u + d) / 2;
+      
+      var eps = ry / rx;
+      var dx = x - cx;
+      var dy = (y - cy) / eps;
+      
+      return dx * dx + dy * dy <= rx * rx;
+    },
     toString: function () {
       return "{x:" + this.x + ", y:" + this.y + ", l:" + this.l + ", r:" + this.r + ", u:" + this.u + ", d:" + this.d + "}";
     }
   });
   
+  xypic.Range = MathJax.Object.Subclass({
+    Init: function (start, end) {
+      if (start > end) {
+        this.start = end;
+        this.end = start;
+      } else {
+        this.start = start;
+        this.end = end;
+      }
+    },
+    /**
+     * returns difference ranges between this range and a given range: this range \ a given range.
+     */
+    difference: function (range) {
+      var diff = FP.List.empty;
+      var a0 = this.start;
+      var a1 = this.end;
+      var b0 = range.start;
+      var b1 = range.end;
+      if (a1 <= b0) {
+        // a0 < a1 <= b0 < b1
+        diff = diff.prepend(this);
+      } else if (b1 <= a0) {
+        // b0 < b1 <= a0 < a1
+        diff = diff.prepend(this);
+      } else if (a0 < b0) {
+        if (a1 <= b1) {
+          // a0 < b0 <= a1 <= b1
+          diff = diff.prepend(xypic.Range(a0, b0));
+        } else {
+          // a0 < b0 < b1 < a1
+          diff = diff.prepend(xypic.Range(a0, b0));
+          diff = diff.prepend(xypic.Range(b1, a1));
+        }
+      } else /* if (b0 <= a0) */ {
+        if (b1 < a1) {
+          // b0 <= a0 <= b1 < a1
+          diff = diff.prepend(xypic.Range(b1, a1));
+        } /* else {
+          // b0 <= a0 < a1 <= b1
+        } */
+      }
+      return diff;
+    },
+    differenceRanges: function (ranges) {
+      var result = FP.List.empty.prepend(this);
+      ranges.foreach(function (range) {
+        result = result.flatMap(function (remaining) {
+          return remaining.difference(range);
+        });
+      });
+      return result;
+    },
+    toString: function () {
+      return "[" + this.start + ", " + this.end + "]";
+    }
+  });
   
   xypic.Shape = MathJax.Object.Subclass({
     // <<interface>>
@@ -3587,7 +3704,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.color = color;
       this.shape = shape;
       memoize(this, "getBoundingBox");
-      console.log("color:" + this.color);
     },
     draw: function (svg) {
       var g = svg.createChangeColorGroup(this.color);
@@ -5453,170 +5569,26 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
-  xypic.Shape.StraightLineShape = xypic.Shape.Subclass({
-    Init: function (s, e, shift, angle, t, variant, dasharray) {
-      this.s = s;
-      this.e = e;
-      this.shift = shift;
-      this.angle = angle;
-      this.t = t;
+  xypic.Shape.LineShape = xypic.Shape.Subclass({
+    Init: function (line, object, main, variant, bbox) {
+      this.line = line;
+      this.object = object;
+      this.main = main;
       this.variant = variant;
-      this.dasharray = dasharray;
-      memoize(this, "getBoundingBox");
+      this.bbox = bbox;
+      this.holeRanges = FP.List.empty;
+    },
+    sliceHole: function (range) {
+      this.holeRanges = this.holeRanges.prepend(range);
     },
     draw: function (svg) {
-      var variant = this.variant;
-      var t = this.t;
-      var angle = this.angle;
-      var s = this.s;
-      var e = this.e;
-      var shift = this.shift;
-      var dasharray = this.dasharray;
-      if (variant === "3") {
-        var cx = t*Math.cos(angle+Math.PI/2);
-        var cy = t*Math.sin(angle+Math.PI/2);
-        svg.createSVGElement("line", {
-          x1:em2px(s.x+shift.x), y1:-em2px(s.y+shift.y),
-          x2:em2px(e.x), y2:-em2px(e.y), 
-          "stroke-dasharray":dasharray
-        });
-        svg.createSVGElement("line", {
-          x1:em2px(s.x+cx+shift.x), y1:-em2px(s.y+cy+shift.y),
-          x2:em2px(e.x+cx), y2:-em2px(e.y+cy), 
-          "stroke-dasharray":dasharray
-        });
-        svg.createSVGElement("line", {
-          x1:em2px(s.x-cx+shift.x), y1:-em2px(s.y-cy+shift.y),
-          x2:em2px(e.x-cx), y2:-em2px(e.y-cy), 
-          "stroke-dasharray":dasharray
-        });
-      } else if (variant === "2") {
-        var cx = t*Math.cos(angle+Math.PI/2)/2;
-        var cy = t*Math.sin(angle+Math.PI/2)/2;
-        svg.createSVGElement("line", {
-          x1:em2px(s.x+cx+shift.x), y1:-em2px(s.y+cy+shift.y),
-          x2:em2px(e.x+cx), y2:-em2px(e.y+cy), 
-          "stroke-dasharray":dasharray
-        });
-        svg.createSVGElement("line", {
-          x1:em2px(s.x-cx+shift.x), y1:-em2px(s.y-cy+shift.y),
-          x2:em2px(e.x-cx), y2:-em2px(e.y-cy), 
-          "stroke-dasharray":dasharray
-        });
-      } else {
-        svg.createSVGElement("line", {
-          x1:em2px(s.x+shift.x), y1:-em2px(s.y+shift.y),
-          x2:em2px(e.x), y2:-em2px(e.y), 
-          "stroke-dasharray":dasharray
-        });
-      }
+      this.line.drawLine(svg, this.object, this.main, this.variant, this.holeRanges);
     },
     getBoundingBox: function () {
-      var variant = this.variant;
-      var t = this.t;
-      var angle = this.angle;
-      var s = this.s;
-      var e = this.e;
-      if (variant === "3") {
-        var cx = t*Math.cos(angle+Math.PI/2);
-        var cy = t*Math.sin(angle+Math.PI/2);
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x+cx, s.x-cx, e.x+cx, e.x-cx),
-          r:Math.max(s.x+cx, s.x-cx, e.x+cx, e.x-cx)-s.x,
-          u:Math.max(s.y+cy, s.y-cy, e.y+cy, e.y-cy)-s.y,
-          d:s.y-Math.min(s.y+cy, s.y-cy, e.y+cy, e.y-cy)
-        });
-      } else if (variant === "2") {
-        var cx = t*Math.cos(angle+Math.PI/2)/2;
-        var cy = t*Math.sin(angle+Math.PI/2)/2;
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x+cx, s.x-cx, e.x+cx, e.x-cx),
-          r:Math.max(s.x+cx, s.x-cx, e.x+cx, e.x-cx)-s.x,
-          u:Math.max(s.y+cy, s.y-cy, e.y+cy, e.y-cy)-s.y,
-          d:s.y-Math.min(s.y+cy, s.y-cy, e.y+cy, e.y-cy)
-        });
-      } else {
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x, e.x),
-          r:Math.max(s.x, e.x)-s.x,
-          u:Math.max(s.y, e.y)-s.y,
-          d:s.y-Math.min(s.y, e.y)
-        });
-      }
+      return this.bbox;
     },
     toString: function () {
-      return "StraightLineShape[s:" + this.s.toString() + ", e:" + this.e.toString() + ", shift:" + this.shift + ", angle:" + this.angle + ", t:" + this.shift + ", variant:" + this.variant + ", dasharray:" + this.dasharray + "]";
-    }
-  });
-  
-  // TODO: もっと波線に特化したクラスにする。
-  xypic.Shape.SquigglyLineShape = xypic.Shape.Subclass({
-    Init: function (d, s, e, cx, cy, variant) {
-      this.d = d;
-      this.s = s;
-      this.e = e;
-      this.cx = cx;
-      this.cy = cy;
-      this.variant = variant;
-      memoize(this, "getBoundingBox");
-    },
-    draw: function (svg) {
-      var variant = this.variant;
-      var d = this.d;
-      var s = this.s;
-      var e = this.e;
-      var cx = this.cx;
-      var cy = this.cy;
-      var g1, g2;
-      if (variant === "3") {
-        svg.createSVGElement("path", { d:d });
-        g1 = svg.createGroup(svg.transformBuilder().translate(cx, cy));
-        g1.createSVGElement("path", { d:d });
-        g2 = svg.createGroup(svg.transformBuilder().translate(-cx, -cy));
-        g2.createSVGElement("path", { d:d });
-      } else if (variant === "2") {
-        g1 = svg.createGroup(svg.transformBuilder().translate(cx / 2, cy / 2));
-        g1.createSVGElement("path", { d:d });
-        g2 = svg.createGroup(svg.transformBuilder().translate(-cx / 2, -cy / 2));
-        g2.createSVGElement("path", { d:d });
-      } else {
-        svg.createSVGElement("path", { d:d });
-      }
-    },
-    getBoundingBox: function () {
-      var variant = this.variant;
-      var d = this.d;
-      var s = this.s;
-      var e = this.e;
-      var cx = this.cx;
-      var cy = this.cy;
-      if (variant === "3") {
-        var bx = 1.5 * cx, by = 1.5 * cy;
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x+bx, s.x-bx, e.x+bx, e.x-bx),
-          r:Math.max(s.x+bx, s.x-bx, e.x+bx, e.x-bx)-s.x,
-          u:Math.max(s.y+by, s.y-by, e.y+by, e.y-by)-s.y,
-          d:s.y-Math.min(s.y+by, s.y-by, e.y+by, e.y-by)
-        });
-      } else if (variant === "2") {
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x+cx, s.x-cx, e.x+cx, e.x-cx),
-          r:Math.max(s.x+cx, s.x-cx, e.x+cx, e.x-cx)-s.x,
-          u:Math.max(s.y+cy, s.y-cy, e.y+cy, e.y-cy)-s.y,
-          d:s.y-Math.min(s.y+cy, s.y-cy, e.y+cy, e.y-cy)
-        });
-      } else {
-        var bx = cx / 2, by = cy / 2;
-        return xypic.Frame.Rect(s.x, s.y, {
-          l:s.x-Math.min(s.x+bx, s.x-bx, e.x+bx, e.x-bx),
-          r:Math.max(s.x+bx, s.x-bx, e.x+bx, e.x-bx)-s.x,
-          u:Math.max(s.y+by, s.y-by, e.y+by, e.y-by)-s.y,
-          d:s.y-Math.min(s.y+by, s.y-by, e.y+by, e.y-by)
-        });
-      }
-    },
-    toString: function () {
-      return "SquigglyLineShape[d" + this.d + ", s:" + this.s.toString() + ", e:" + this.e.toString() + ", cx:" + this.cx + ", cy:" + this.cy + ", variant:" + this.variant + "]";
+      return "LineShape[line:" + this.line + ", object:" + this.object + ", main:" + this.main + ", variant:" + this.variant + "]";
     }
   });
   
@@ -5626,9 +5598,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.objectForDrop = objectForDrop;
       this.objectForConnect = objectForConnect;
       this.bbox = bbox;
+      this.holeRanges = FP.List.empty;
+    },
+    sliceHole: function (range) {
+      this.holeRanges = this.holeRanges.prepend(range);
     },
     draw: function (svg) {
-      this.curve.drawCurve(svg, this.objectForDrop, this.objectForConnect);
+      this.curve.drawCurve(svg, this.objectForDrop, this.objectForConnect, this.holeRanges);
     },
     getBoundingBox: function () {
       return this.bbox;
@@ -5695,6 +5671,52 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       }
       var t = (m + (s-al)/(ah-al))/n;
       return t;
+    },
+    tOfShavedStart: function (frame) {
+      if (frame.isPoint()) {
+        return 0; // trivial
+      }
+      
+      var ts = this.tOfIntersections(frame);
+      if (ts.length == 0) {
+        return undefined; // No solution.
+      }
+      return Math.min.apply(Math, ts);
+    },
+    tOfShavedEnd: function (frame) {
+      if (frame.isPoint()) {
+        return 1; // trivial
+      }
+      
+      var ts = this.tOfIntersections(frame);
+      if (ts.length == 0) {
+        return undefined; // No solution.
+      }
+      return Math.max.apply(Math, ts);
+    },
+    shaveStart: function (frame) {
+      if (frame.isPoint()) {
+        return this; // trivial
+      }
+      
+      var ts = this.tOfIntersections(frame);
+      if (ts.length == 0) {
+        return undefined; // No solution.
+      }
+      var t = Math.min.apply(Math, ts);
+      return this.divide(t)[1];
+    },
+    shaveEnd: function (frame) {
+      if (frame.isPoint()) {
+        return this; // trivial
+      }
+      
+      var ts = this.tOfIntersections(frame);
+      if (ts.length == 0) {
+        return undefined; // No solution.
+      }
+      var t = Math.max.apply(Math, ts);
+      return this.divide(t)[0];
     },
     buildLengthArray: function () {
       if (this.lengthArray !== undefined) {
@@ -6122,138 +6144,228 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         }
       }
     },
-    drawCurve: function (svg, objectForDrop, objectForConnect) {
+    drawCurve: function (svg, objectForDrop, objectForConnect, holeRanges) {
+      if (holeRanges.isEmpty) {
+        this._drawCurve(svg, objectForDrop, objectForConnect);
+      } else {
+        var clippingRanges = xypic.Range(0, 1).differenceRanges(holeRanges);
+        var self = this;
+        clippingRanges.foreach(function (range) {
+          self.slice(range.start, range.end)._drawCurve(svg, objectForDrop, objectForConnect);
+        });
+      }
+    },
+    _drawCurve: function (svg, objectForDrop, objectForConnect) {
       var thickness = HTMLCSS.length2em("0.15em"), vshift;
-      if (objectForConnect === undefined) {
-        // XXX Objectをdropする曲線はこのクラスでは描かない。
-        return;
-      }
-      var main = objectForConnect.dirMain();
-      var variant = objectForConnect.dirVariant();
-      switch (main) {
-        case "=":
-          main = "-";
-          variant = "2";
-          break;
-        case "==":
-          main = "--";
-          variant = "2";
-          break;
-        case ':':
-        case '::':
-          main = ".";
-          variant = "2";
-          break;
-      }
-      
-      switch (main) {
-        case '':
-          // draw nothing
-          break;
-          
-        case '-':
-          switch (variant) {
-            case "2":
-              vshift = thickness/2;
-              this.drawParallelCurve(svg, vshift);
-              break;
-            case "3":
-              vshift = thickness;
-              this.drawParallelCurve(svg, vshift);
-              this.drawPrimitive(svg, "none");
-              break;
-            default:
-              vshift = 0;
-              this.drawPrimitive(svg, "none");
-          }
-          break;
-          
-        case '.':
-        case '..':
-          switch (variant) {
-            case "2":
-              vshift = thickness/2;
-              this.drawParallelDottedCurve(svg, thickness, vshift)
-              break;
-              
-            case "3":
-              vshift = thickness;
-              this.drawParallelDottedCurve(svg, thickness, vshift)
-              this.drawPrimitive(svg, "1 "+em2px(thickness));
-              break;
-              
-            default:
-              vshift = 0;
-              this.drawPrimitive(svg, "1 "+em2px(thickness));
-              break;
-          }
-          break;
-          
-        case '--':
-          var dash = 3 * thickness;
-          var len = this.length(1);
-          if (len >= dash) {
+      if (objectForConnect !== undefined) {
+        var main = objectForConnect.dirMain();
+        var variant = objectForConnect.dirVariant();
+        switch (main) {
+          case "=":
+            main = "-";
+            variant = "2";
+            break;
+          case "==":
+            main = "--";
+            variant = "2";
+            break;
+          case ':':
+          case '::':
+            main = ".";
+            variant = "2";
+            break;
+        }
+        
+        switch (main) {
+          case '':
+            // draw nothing
+            break;
+            
+          case '-':
             switch (variant) {
               case "2":
-                vshift = thickness / 2;
-                this.drawParallelDashedCurve(svg, dash, vshift);
+                vshift = thickness/2;
+                this.drawParallelCurve(svg, vshift);
+                break;
+              case "3":
+                vshift = thickness;
+                this.drawParallelCurve(svg, vshift);
+                this.drawPrimitive(svg, "none");
+                break;
+              default:
+                vshift = 0;
+                this.drawPrimitive(svg, "none");
+            }
+            break;
+            
+          case '.':
+          case '..':
+            switch (variant) {
+              case "2":
+                vshift = thickness/2;
+                this.drawParallelDottedCurve(svg, thickness, vshift)
                 break;
                 
               case "3":
                 vshift = thickness;
-                this.drawParallelDashedCurve(svg, dash, vshift);
-                var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
-                var shiftT = this.tOfLength(shiftLen);
-                var shifted = this.divide(shiftT)[1];
-                shifted.drawPrimitive(svg, em2px(dash) + " " + em2px(dash))
+                this.drawParallelDottedCurve(svg, thickness, vshift)
+                this.drawPrimitive(svg, "1 "+em2px(thickness));
                 break;
                 
               default:
                 vshift = 0;
-                var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
-                var shiftT = this.tOfLength(shiftLen);
-                var shifted = this.divide(shiftT)[1];
-                shifted.drawPrimitive(svg, em2px(dash) + " " + em2px(dash));
+                this.drawPrimitive(svg, "1 "+em2px(thickness));
+                break;
             }
-          }
-          break;
-          
-        case '~':
-          this.drawSquigCurve(svg, variant);
-          switch (variant) {
-            case "2":
-              vshift = 1.5 * thickness;
-              break;
-            case "3":
-              vshift = 2 * thickness;
-              break;
-            default:
-              vshift = 0
-          }
-          break;
-          
-        case '~~':
-          this.drawDashSquigCurve(svg, variant);
-          switch (variant) {
-            case "2":
-              vshift = 1.5 * thickness;
-              break;
-            case "3":
-              vshift = 2 * thickness;
-              break;
-            default:
-              vshift = 0
-          }
-          break;
-          
-        default:
-          // XXX Objectをdropする曲線はこのクラスでは描かない。
+            break;
+            
+          case '--':
+            var dash = 3 * thickness;
+            var len = this.length(1);
+            if (len >= dash) {
+              switch (variant) {
+                case "2":
+                  vshift = thickness / 2;
+                  this.drawParallelDashedCurve(svg, dash, vshift);
+                  break;
+                  
+                case "3":
+                  vshift = thickness;
+                  this.drawParallelDashedCurve(svg, dash, vshift);
+                  var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
+                  var shiftT = this.tOfLength(shiftLen);
+                  var shifted = this.divide(shiftT)[1];
+                  shifted.drawPrimitive(svg, em2px(dash) + " " + em2px(dash))
+                  break;
+                  
+                default:
+                  vshift = 0;
+                  var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
+                  var shiftT = this.tOfLength(shiftLen);
+                  var shifted = this.divide(shiftT)[1];
+                  shifted.drawPrimitive(svg, em2px(dash) + " " + em2px(dash));
+              }
+            }
+            break;
+            
+          case '~':
+            this.drawSquigCurve(svg, variant);
+            switch (variant) {
+              case "2":
+                vshift = 1.5 * thickness;
+                break;
+              case "3":
+                vshift = 2 * thickness;
+                break;
+              default:
+                vshift = 0
+            }
+            break;
+            
+          case '~~':
+            this.drawDashSquigCurve(svg, variant);
+            switch (variant) {
+              case "2":
+                vshift = 1.5 * thickness;
+                break;
+              case "3":
+                vshift = 2 * thickness;
+                break;
+              default:
+                vshift = 0
+            }
+            break;
+            
+          default:
+            // TODO: ~* と ~** の順序を考慮する。
+            var dummyEnv = xypic.Env();
+            dummyEnv.c = xypic.Env.originPosition;
+            var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+            var conBBox = objectForConnect.boundingBox(dummyContext);
+            if (conBBox == undefined) {
+              return;
+            }
+            
+            var cl = conBBox.l;
+            var conLen = cl + conBBox.r;
+            
+            var dropLen, dl;
+            if (objectForDrop !== undefined) {
+              var dropBBox = objectForDrop.boundingBox(dummyContext);
+              if (dropBBox !== undefined) {
+                dl = dropBBox.l;
+                dropLen = dl + dropBBox.r;
+              }
+            } else {
+              dropLen = 0;
+            }
+            
+            var compositeLen = conLen + dropLen;
+            if (compositeLen == 0) {
+              compositeLen = AST.xypic.strokeWidth;
+            }
+            
+            var len = this.length(1);
+            var n = Math.floor(len / compositeLen);
+            if (n == 0) {
+              return;
+            }
+            
+            var shiftLen = (len - n * compositeLen) / 2;
+            
+            var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+            var s, t;
+            for (var i = 0; i < n; i++) {
+              s = shiftLen + i * compositeLen;
+              if (objectForDrop !== undefined) {
+                t = this.tOfLength(s + dl);
+                dummyEnv.c = this.position(t);
+                dummyEnv.angle = this.angle(t);
+                objectForDrop.toDropShape(dummyContext).draw(svg);
+              }
+              t = this.tOfLength(s + dropLen + cl);
+              dummyEnv.c = this.position(t);
+              dummyEnv.angle = this.angle(t);
+              bbox = objectForConnect.toDropShape(dummyContext).draw(svg);
+            }
+        }
+      } else {
+        var dummyEnv = xypic.Env();
+        dummyEnv.c = xypic.Env.originPosition;
+        var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+        var object = objectForDrop;
+        var objectBBox = object.boundingBox(dummyContext);
+        if (objectBBox === undefined) {
+          return;
+        }
+        var objectWidth = objectBBox.l + objectBBox.r;
+        var objectLen = objectWidth;
+        if (objectLen == 0) {
+          objectLen = AST.xypic.strokeWidth;
+        }
+        
+        var len = this.length(1);
+        var n = Math.floor(len / objectLen);
+        if (n == 0) {
+          return;
+        }
+        
+        var shiftLen = (len - n * objectLen + objectLen - objectWidth) / 2 + objectBBox.l;
+        var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+        for (var i = 0; i < n; i++) {
+          var s = shiftLen + i * objectLen;
+          var t = this.tOfLength(s);
+          dummyEnv.c = this.position(t);
+          dummyEnv.angle = 0;
+          object.toDropShape(dummyContext).draw(svg);
+        }
       }
     },
     toShape: function (context, objectForDrop, objectForConnect) {
       var env = context.env;
       var thickness = HTMLCSS.length2em("0.15em"), vshift;
       var shape = xypic.Shape.none;
+      var vshift;
       if (objectForConnect !== undefined) {
         var main = objectForConnect.dirMain();
         var variant = objectForConnect.dirVariant();
@@ -6334,9 +6446,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
             var conBBox = objectForConnect.boundingBox(context);
             if (conBBox == undefined) {
               env.angle = 0;
-              env.mostRecentLine = xypic.MostRecentLine.none;
+              env.lastCurve = xypic.LastCurve.none;
               return xypic.Shape.none;
             }
+            vshift = Math.max(conBBox.u, conBBox.d);
             
             var cl = conBBox.l;
             var conLen = cl + conBBox.r;
@@ -6347,6 +6460,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
               if (dropBBox !== undefined) {
                 dl = dropBBox.l;
                 dropLen = dl + dropBBox.r;
+                vshift = Math.max(vshift, dropBBox.u, dropBBox.d);
               }
             } else {
               dropLen = 0;
@@ -6361,30 +6475,11 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
             var n = Math.floor(len / compositeLen);
             if (n == 0) {
               env.angle = 0;
-              env.mostRecentLine = xypic.MostRecentLine.none;
+              env.lastCurve = xypic.LastCurve.none;
               return xypic.Shape.none;
             }
             
-            var c = env.c;
-            var shiftLen = (len - n * compositeLen) / 2;
-            
-            var tmpContext = xypic.DrawingContext(xypic.Shape.none, env);
-            var s, t;
-            for (var i = 0; i < n; i++) {
-              s = shiftLen + i * compositeLen;
-              if (objectForDrop !== undefined) {
-                t = this.tOfLength(s + dl);
-                env.c = this.position(t);
-                env.angle = this.angle(t);
-                objectForDrop.toDropShape(tmpContext);
-              }
-              t = this.tOfLength(s + dropLen + cl);
-              env.c = this.position(t);
-              env.angle = this.angle(t);
-              bbox = objectForConnect.toDropShape(tmpContext);
-            }
-            env.c = c;
-            shape = tmpContext.shape;
+            shape = xypic.Shape.CurveShape(this, objectForDrop, objectForConnect, this.boundingBox(vshift));
             context.appendShapeToFront(shape);
             return shape;
         }
@@ -6400,11 +6495,11 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var objectBBox = object.boundingBox(context);
         if (objectBBox == undefined) {
           env.angle = 0;
-          env.mostRecentLine = xypic.MostRecentLine.none;
+          env.lastCurve = xypic.LastCurve.none;
           return xypic.Shape.none;
         }
         
-        var objectWidth = objectBBox.l+objectBBox.r;
+        var objectWidth = objectBBox.l + objectBBox.r;
         var objectLen = objectWidth;
         if (objectLen == 0) {
           objectLen = AST.xypic.strokeWidth;
@@ -6414,22 +6509,12 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var n = Math.floor(len / objectLen);
         if (n == 0) {
           env.angle = 0;
-          env.mostRecentLine = xypic.MostRecentLine.none;
+          env.lastCurve = xypic.LastCurve.none;
           return xypic.Shape.none;
         }
         
-        var shiftLen = (len - n*objectLen + objectLen - objectWidth) / 2 + objectBBox.l;
-        var c = env.c;
-        var tmpContext = xypic.DrawingContext(xypic.Shape.none, env);
-        for (var i = 0; i < n; i++) {
-          var s = shiftLen + i*objectLen;
-          var t = this.tOfLength(s);
-          env.c = this.position(t);
-          env.angle = 0;
-          object.toDropShape(tmpContext);
-        }
-        env.c = c;
-        shape = tmpContext.shape;
+        vshift = Math.max(objectBBox.u, objectBBox.d);
+        shape = xypic.Shape.CurveShape(this, objectForDrop, objectForConnect, this.boundingBox(vshift));
         context.appendShapeToFront(shape);
         return shape;
       }
@@ -6437,24 +6522,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   }, {
     sign: function (x) { return x>0? 1 : (x===0? 0 : -1); },
-    minT: function () {
-      var ts = [];
-      for (var i = 0; i < arguments.length; i++) {
-        var t = arguments[i];
-        if (t >= 0 && t <= 1) {
-          ts.push(t);
-        }
-      }
-      if (ts.length > 0) {
-        return Math.min.apply(Math, ts);
-      } else {
-        return undefined;
-      }
-    },
-    minSolutionOfCubicEq: function (a3, a2, a1, a0) {
-      // find minimum solution t in [0, 1]
+    solutionsOfCubicEq: function (a3, a2, a1, a0) {
+      // find solutions t in [0, 1]
       if (a3 === 0) {
-        return xypic.Curve.minSolutionOfQuadEq(a2, a1, a0);
+        return xypic.Curve.solutionsOfQuadEq(a2, a1, a0);
       }
       var b2 = a2/3/a3, b1 = a1/a3, b0 = a0/a3;
       var p = b2*b2-b1/3, q = -b0/2+b1*b2/2-b2*b2*b2;
@@ -6462,40 +6533,54 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       if (d === 0) {
         var s = Math.pow(q, 1/3);
         var t0 = 2*s-b2, t1 = -s-b2;
-        return xypic.Curve.minT(t0, t1);
+        return xypic.Curve.filterByIn0to1([t0, t1]);
       } else if (d > 0) {
         var u = q+xypic.Curve.sign(q)*Math.sqrt(d);
         var r = xypic.Curve.sign(u)*Math.pow(Math.abs(u), 1/3);
         var s = p/r;
         var t = r+s-b2;
-        return xypic.Curve.minT(t);
+        return xypic.Curve.filterByIn0to1([t]);
       } else {
         var r = 2*Math.sqrt(p);
         var s = Math.acos(2*q/p/r);
         var t0 = r*Math.cos(s/3)-b2;
         var t1 = r*Math.cos((s+2*Math.PI)/3)-b2;
         var t2 = r*Math.cos((s+4*Math.PI)/3)-b2;
-        return xypic.Curve.minT(t0, t1, t2);
+        return xypic.Curve.filterByIn0to1([t0, t1, t2]);
       }
     },
-    minSolutionOfQuadEq: function (a2, a1, a0) {
-      // find minimum solution t in [0, 1]
+    solutionsOfQuadEq: function (a2, a1, a0) {
+      // find solutions t in [0, 1]
       if (a2 === 0) {
-        if (a1 === 0) {
-          return (a0 === 0? 0 : undefined);
-        }
-        return  xypic.Curve.minT(-a0/a1);
+        return xypic.Curve.solutionsOfLinearEq(a1, a0);
       } else {
-        var d = a1*a1-4*a0*a2;
+        var d = a1 * a1 - 4 * a0 * a2;
         if (d >= 0) {
           var s = Math.sqrt(d);
-          var tp = (-a1+s)/2/a2;
-          var tm = (-a1-s)/2/a2;
-          return xypic.Curve.minT(tp, tm);
+          var tp = (-a1 + s) / 2 / a2;
+          var tm = (-a1 - s) / 2 / a2;
+          return xypic.Curve.filterByIn0to1([tp, tm]);
         } else {
-          return undefined;
+          return [];
         }
       }
+    },
+    solutionsOfLinearEq: function (a1, a0) {
+      // find solution t in [0, 1]
+      if (a1 === 0) {
+        return (a0 === 0? 0 : []);
+      }
+      return xypic.Curve.filterByIn0to1([-a0 / a1]);
+    },
+    filterByIn0to1: function (ts) {
+      var filterdTs = [];
+      for (var i = 0; i < ts.length; i++) {
+        var t = ts[i];
+        if (t >= 0 && t <= 1) {
+          filterdTs.push(t);
+        }
+      }
+      return filterdTs;
     }
   });
   
@@ -6592,7 +6677,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         throw xypic.ExecutionError("illegal quadratic Bezier parameter t:"+t);
       }
       
-      // find starting edge point
       var x0 = this.cp0.x;
       var x1 = this.cp1.x;
       var x2 = this.cp2.x;
@@ -6617,47 +6701,45 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         xypic.Curve.QuadBezier(q0, q1, q2)
       ]
     },
-    shaveStart: function (frame) {
-      var edgeCPs;
-      edgeCPs = this.edgeControlPoints(frame, this.cp0, this.cp1, this.cp2);
-      if (edgeCPs === undefined) {
+    slice: function (t0, t1) {
+      if (t0 >= t1) {
         return undefined;
       }
-      return xypic.Curve.QuadBezier(edgeCPs[0], edgeCPs[1], edgeCPs[2]);
-    },
-    shaveEnd: function (frame) {
-      var edgeCPs;
-      edgeCPs = this.edgeControlPoints(frame, this.cp2, this.cp1, this.cp0);
-      if (edgeCPs === undefined) {
-        return undefined;
+      
+      if (t0 < 0) {
+        t0 = 0;
+      } 
+      if (t1 > 1) {
+        t1 = 1;
       }
-      return xypic.Curve.QuadBezier(edgeCPs[2], edgeCPs[1], edgeCPs[0]);
+      
+      if (t0 === 0 && t1 === 1) {
+        return this;
+      }
+      
+      var x0 = this.cp0.x;
+      var x1 = this.cp1.x;
+      var x2 = this.cp2.x;
+      
+      var y0 = this.cp0.y;
+      var y1 = this.cp1.y;
+      var y2 = this.cp2.y;
+      
+      var q0x = this.px(t0);
+      var q0y = this.py(t0);
+      var q1x = x1 + t0 * (x2 - x1);
+      var q1y = y1 + t0 * (y2 - y1);
+      
+      var p0 = xypic.Frame.Point(q0x, q0y);
+      var p1 = xypic.Frame.Point(q0x + t1 * (q1x - q0x), q0y + t1 * (q1y - q0y));
+      var p2 = xypic.Frame.Point(this.px(t1), this.py(t1));
+      
+      return xypic.Curve.QuadBezier(p0, p1, p2);
     },
-    edgeControlPoints: function (frame, cp0, cp1, cp2) {
+    tOfIntersections: function (frame) {
       if (frame.isPoint()) {
-        return [cp0, cp1 ,cp2];
+        return []; // CAUTION: Point does not intersect with any curves.
       }
-      
-      var t;
-      var roundEp = xypic.Util.roundEpsilon;
-      
-      var x0 = cp0.x;
-      var x1 = cp1.x;
-      var x2 = cp2.x;
-      
-      var a0x = roundEp(x0);
-      var a1x = roundEp(2*(x1 - x0));
-      var a2x = roundEp(x2 - 2*x1 + x0);
-      var px = function(t) { return a0x + t*a1x + t*t*a2x; }
-      
-      var y0 = cp0.y;
-      var y1 = cp1.y;
-      var y2 = cp2.y;
-      
-      var a0y = roundEp(y0);
-      var a1y = roundEp(2*(y1 - y0));
-      var a2y = roundEp(y2 - 2*y1 + y0);
-      var py = function(t) { return a0y + t*a1y + t*t*a2y; }
       
       if (frame.isRect()) {
         // find starting edge point
@@ -6666,28 +6748,49 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var uy = frame.y + frame.u;
         var dy = frame.y - frame.d;
         
+        var roundEp = xypic.Util.roundEpsilon;
+        
+        var x0 = this.cp0.x;
+        var x1 = this.cp1.x;
+        var x2 = this.cp2.x;
+        
+        var a0x = roundEp(x0);
+        var a1x = roundEp(2*(x1 - x0));
+        var a2x = roundEp(x2 - 2*x1 + x0);
+        var px = function(t) { return a0x + t*a1x + t*t*a2x; }
+        
+        var y0 = this.cp0.y;
+        var y1 = this.cp1.y;
+        var y2 = this.cp2.y;
+        
+        var a0y = roundEp(y0);
+        var a1y = roundEp(2*(y1 - y0));
+        var a2y = roundEp(y2 - 2*y1 + y0);
+        var py = function(t) { return a0y + t*a1y + t*t*a2y; }
+        
         var ts = [];
-        if (x0 <= rx && (x1 >= rx || x2 >= rx)) {
-          t = xypic.Curve.minSolutionOfQuadEq(a2x, a1x, a0x-rx);
-          if (t !== undefined) { ts.push(t) }
+        
+        var tsCandidate;
+        tsCandidate = xypic.Curve.solutionsOfQuadEq(a2x, a1x, a0x - rx);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfQuadEq(a2x, a1x, a0x - lx));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var y = py(t);
+          if (y >= dy && y <= uy) {
+            ts.push(t);
+          }
         }
-        if (x0 >= lx && (x2 <= lx || x1 <= lx)) {
-          t = xypic.Curve.minSolutionOfQuadEq(a2x, a1x, a0x-lx);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (y0 <= uy && (y1 >= uy || y2 >= uy)) {
-          t = xypic.Curve.minSolutionOfQuadEq(a2y, a1y, a0y-uy);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (y0 >= dy && (y2 <= dy || y1 <= dy)) {
-          t = xypic.Curve.minSolutionOfQuadEq(a2y, a1y, a0y-dy);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (ts.length === 0) {
-          return undefined;
+        tsCandidate = xypic.Curve.solutionsOfQuadEq(a2y, a1y, a0y - uy);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfQuadEq(a2y, a1y, a0y - dy));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var x = px(t);
+          if (x >= lx && x <= rx) {
+            ts.push(t);
+          }
         }
         
-        t = Math.min.apply(Math, ts);
+        return ts;
       } else if (frame.isCircle()) {
         var pi = Math.PI;
         var x = frame.x;
@@ -6707,7 +6810,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
         var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
         
-        var bezier = xypic.CurveSegment.QuadBezier(xypic.Curve.QuadBezier(cp0, cp1, cp2), 0, 1);
+        var bezier = xypic.CurveSegment.QuadBezier(this, 0, 1);
         
         var intersec = [];
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, bezier));
@@ -6715,21 +6818,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, bezier));
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, bezier));
         
-        if (intersec.length === 0) {
-          return undefined;
-        } else {
-          t = (intersec[0][1].min + intersec[0][1].max) / 2;
-          for (var i = 1; i < intersec.length; i++) { 
-            var ttmp = (intersec[i][1].min + intersec[i][1].max) / 2;
-            if (t > ttmp) { t = ttmp; }
-          }
+        var ts = [];
+        for (var i = 0; i < intersec.length; i++) { 
+          var t = (intersec[i][1].min + intersec[i][1].max) / 2;
+          ts.push(t);
         }
+        return ts;
       }
-      var tx = px(t);
-      var ty = py(t);
-      cp0 = xypic.Frame.Point(tx, ty);
-      cp1 = xypic.Frame.Point(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
-      return [cp0, cp1 ,cp2];
     },
     countOfSegments: function () { return 1; },
     drawPrimitive: function (svg, dasharray) {
@@ -6859,7 +6954,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         throw xypic.ExecutionError("illegal cubic Bezier parameter t:"+t);
       }
       
-      // find starting edge point
       var x0 = this.cp0.x;
       var x1 = this.cp1.x;
       var x2 = this.cp2.x;
@@ -6894,51 +6988,53 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         xypic.Curve.CubicBezier(q0, q1, q2, q3)
       ]
     },
-    shaveStart: function (frame) {
-      var edgeCPs;
-      edgeCPs = this.edgeControlPoints(frame, this.cp0, this.cp1, this.cp2, this.cp3);
-      if (edgeCPs === undefined) {
+    slice: function (t0, t1) {
+      if (t0 >= t1) {
         return undefined;
       }
-      return xypic.Curve.CubicBezier(edgeCPs[0], edgeCPs[1], edgeCPs[2], edgeCPs[3]);
-    },
-    shaveEnd: function (frame) {
-      var edgeCPs;
-      edgeCPs = this.edgeControlPoints(frame, this.cp3, this.cp2, this.cp1, this.cp0);
-      if (edgeCPs === undefined) {
-        return undefined;
+      
+      if (t0 < 0) {
+        t0 = 0;
+      } 
+      if (t1 > 1) {
+        t1 = 1;
       }
-      return xypic.Curve.CubicBezier(edgeCPs[3], edgeCPs[2], edgeCPs[1], edgeCPs[0]);
+      
+      if (t0 === 0 && t1 === 1) {
+        return this;
+      }
+      
+      var x0 = this.cp0.x;
+      var x1 = this.cp1.x;
+      var x2 = this.cp2.x;
+      var x3 = this.cp3.x;
+      
+      var y0 = this.cp0.y;
+      var y1 = this.cp1.y;
+      var y2 = this.cp2.y;
+      var y3 = this.cp3.y;
+      
+      var q0x = this.px(t0);
+      var q0y = this.py(t0);
+      var q1x = x1 + 2 * t0 * (x2 - x1) + t0 * t0 * (x3 - 2 * x2 + x1);
+      var q1y = y1 + 2 * t0 * (y2 - y1) + t0 * t0 * (y3 - 2 * y2 + y1);
+      var q2x = x2 + t0 * (x3 - x2);
+      var q2y = y2 + t0 * (y3 - y2);
+      
+      var p0 = xypic.Frame.Point(q0x, q0y);
+      var p1 = xypic.Frame.Point(q0x + t1 * (q1x - q0x), q0y + t1 * (q1y - q0y));
+      var p2 = xypic.Frame.Point(
+        q0x + 2 * t1 * (q1x - q0x) + t1 * t1 * (q2x - 2 * q1x + q0x),
+        q0y + 2 * t1 * (q1y - q0y) + t1 * t1 * (q2y - 2 * q1y + q0y)
+      );
+      var p3 = xypic.Frame.Point(this.px(t1), this.py(t1));
+      
+      return xypic.Curve.CubicBezier(p0, p1, p2, p3);
     },
-    edgeControlPoints: function (frame, cp0, cp1, cp2, cp3) {
+    tOfIntersections: function (frame) {
       if (frame.isPoint()) {
-        return [cp0, cp1 ,cp2, cp3];
+        return []; // CAUTION: Point does not intersect with any curves.
       }
-      
-      var t;
-      var roundEp = xypic.Util.roundEpsilon;
-      
-      var x0 = cp0.x;
-      var x1 = cp1.x;
-      var x2 = cp2.x;
-      var x3 = cp3.x;
-      
-      var y0 = cp0.y;
-      var y1 = cp1.y;
-      var y2 = cp2.y;
-      var y3 = cp3.y;
-      
-      var a0x = roundEp(x0);
-      var a1x = roundEp(3*(x1 - x0));
-      var a2x = roundEp(3*(x2 - 2*x1 + x0));
-      var a3x = roundEp(x3 - 3*x2 + 3*x1 - x0);
-      var px = function(t) { return a0x + t*a1x + t*t*a2x + t*t*t*a3x }
-      
-      var a0y = roundEp(y0);
-      var a1y = roundEp(3*(y1 - y0));
-      var a2y = roundEp(3*(y2 - 2*y1 + y0));
-      var a3y = roundEp(y3 - 3*y2 + 3*y1 - y0);
-      var py = function(t) { return a0y + t*a1y + t*t*a2y + t*t*t*a3y }
       
       if (frame.isRect()) {
         // find starting edge point
@@ -6947,28 +7043,52 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var uy = frame.y + frame.u;
         var dy = frame.y - frame.d;
         
+        var roundEp = xypic.Util.roundEpsilon;
+        
+        var x0 = this.cp0.x;
+        var x1 = this.cp1.x;
+        var x2 = this.cp2.x;
+        var x3 = this.cp3.x;
+        
+        var y0 = this.cp0.y;
+        var y1 = this.cp1.y;
+        var y2 = this.cp2.y;
+        var y3 = this.cp3.y;
+        
+        var a0x = roundEp(x0);
+        var a1x = roundEp(3*(x1 - x0));
+        var a2x = roundEp(3*(x2 - 2*x1 + x0));
+        var a3x = roundEp(x3 - 3*x2 + 3*x1 - x0);
+        var px = function(t) { return a0x + t*a1x + t*t*a2x + t*t*t*a3x }
+        
+        var a0y = roundEp(y0);
+        var a1y = roundEp(3*(y1 - y0));
+        var a2y = roundEp(3*(y2 - 2*y1 + y0));
+        var a3y = roundEp(y3 - 3*y2 + 3*y1 - y0);
+        var py = function(t) { return a0y + t*a1y + t*t*a2y + t*t*t*a3y }
+        
         var ts = [];
-        if (x0 <= rx && (x3 >= rx || x1 >= rx || x2 >= rx)) {
-          t = xypic.Curve.minSolutionOfCubicEq(a3x, a2x, a1x, a0x-rx);
-          if (t !== undefined) { ts.push(t) }
+        var tsCandidate;
+        tsCandidate = xypic.Curve.solutionsOfCubicEq(a3x, a2x, a1x, a0x-rx);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfCubicEq(a3x, a2x, a1x, a0x-lx));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var y = py(t);
+          if (y >= dy && y <= uy) {
+            ts.push(t);
+          }
         }
-        if (x0 >= lx && (x3 <= lx || x2 <= lx || x1 <= lx)) {
-          t = xypic.Curve.minSolutionOfCubicEq(a3x, a2x, a1x, a0x-lx);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (y0 <= uy && (y3 >= uy || y1 >= uy || y2 >= uy)) {
-          t = xypic.Curve.minSolutionOfCubicEq(a3y, a2y, a1y, a0y-uy);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (y0 >= dy && (y3 <= dy || y2 <= dy || y1 <= dy)) {
-          t = xypic.Curve.minSolutionOfCubicEq(a3y, a2y, a1y, a0y-dy);
-          if (t !== undefined) { ts.push(t) }
-        }
-        if (ts.length === 0) {
-          return undefined;
+        tsCandidate = xypic.Curve.solutionsOfCubicEq(a3y, a2y, a1y, a0y-uy);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfCubicEq(a3y, a2y, a1y, a0y-dy));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var x = px(t);
+          if (x >= lx && x <= rx) {
+            ts.push(t);
+          }
         }
         
-        t = Math.min.apply(Math, ts);
+        return ts;
       } else if (frame.isCircle()) {
         var pi = Math.PI;
         var x = frame.x;
@@ -6988,7 +7108,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var arc2 = xypic.CurveSegment.Arc(cx, cy, rx, ry, 0 - delta, pi / 2 + delta);
         var arc3 = xypic.CurveSegment.Arc(cx, cy, rx, ry, pi / 2 - delta, pi + delta);
         
-        var bezier = xypic.CurveSegment.CubicBezier(xypic.Curve.CubicBezier(cp0, cp1, cp2, cp3), 0, 1);
+        var bezier = xypic.CurveSegment.CubicBezier(this, 0, 1);
         
         var intersec = [];
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc0, bezier));
@@ -6996,26 +7116,13 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc2, bezier));
         intersec = intersec.concat(xypic.CurveSegment.findIntersections(arc3, bezier));
         
-        if (intersec.length === 0) {
-          return undefined;
-        } else {
-          t = (intersec[0][1].min + intersec[0][1].max)/2;
-          for (var i = 1; i < intersec.length; i++) { 
-            var ttmp = (intersec[i][1].min + intersec[i][1].max)/2;
-            if (t > ttmp) { t = ttmp; }
-          }
+        var ts = [];
+        for (var i = 0; i < intersec.length; i++) { 
+          var t = (intersec[i][1].min + intersec[i][1].max) / 2;
+          ts.push(t);
         }
+        return ts;
       }
-      
-      var tx = px(t);
-      var ty = py(t);
-      cp0 = xypic.Frame.Point(tx, ty);
-      cp1 = xypic.Frame.Point(
-        x1+2*t*(x2-x1)+t*t*(x3-2*x2+x1),
-        y1+2*t*(y2-y1)+t*t*(y3-2*y2+y1)
-      );
-      cp2 = xypic.Frame.Point(x2+t*(x3-x2), y2+t*(y3-y2));
-      return [cp0, cp1 ,cp2, cp3];
     },
     countOfSegments: function () { return 1; },
     drawPrimitive: function (svg, dasharray) {
@@ -7041,10 +7148,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         function (t, succ, fail) {
           return fail;
         } : function (t, succ, fail) {
-          var tn = t*n;
+          var tn = t * n;
           var i = Math.floor(tn);
           if (i < 0) { i = 0; }
-          if (i >= n) { i = n-1; }
+          if (i >= n) { i = n - 1; }
           var s = tn - i;
           var cb = cbs[i];
           return succ(cb, s);
@@ -7068,7 +7175,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     velocity: function (t) {
       var n = this.cbs.length;
-      return this.delegate(t, function (cb, s) { return n*cb.velocity(s) }, 0);
+      return this.delegate(t, function (cb, s) { return n * cb.velocity(s) }, 0);
     },
     boundingBox: function (vshift) {
       if (this.cbs.length == 0) {
@@ -7081,43 +7188,17 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       }
       return bbox;
     },
-    shaveStart: function (frame) {
-      var shaved = [];
-      var i = 0, l = this.cbs.length;
-      while (i < l) {
+    tOfIntersections: function (frame) {
+      var ts = [];
+      var i = 0, n = this.cbs.length;
+      for (i = 0; i < n; i++) {
         var cb = this.cbs[i];
-        cb = cb.shaveStart(frame);
-        i++;
-        if (cb !== undefined) {
-          shaved.push(cb);
-          while (i < l) {
-            cb = this.cbs[i];
-            shaved.push(cb);
-            i++;
-          }
-          break;
+        unnormalizedTs = cb.tOfIntersections(frame);
+        for (j = 0; j < unnormalizedTs.length; j++) {
+          ts.push((unnormalizedTs[j] + i) / n);
         }
       }
-      return xypic.Curve.CubicBeziers(shaved);
-    },
-    shaveEnd: function (frame) {
-      var reversedShaved = [];
-      var l = this.cbs.length;
-      var i = l - 1;
-      while (i >= 0) {
-        var cb = this.cbs[i];
-        cb = cb.shaveEnd(frame);
-        i--;
-        if (cb !== undefined) {
-          reversedShaved.push(cb);
-          while (i >= 0) {
-            cb = this.cbs[i];
-            reversedShaved.push(cb);
-            i--;
-          }
-        }
-      }
-      return xypic.Curve.CubicBeziers(reversedShaved.reverse());
+      return ts;
     },
     divide: function (t) {
       if (t < 0 || t > 1) {
@@ -7129,16 +7210,58 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       }
       
       var n = this.cbs.length;
-      var tn = t*n;
+      var tn = t * n;
       var i = Math.floor(tn);
+      if (i === n) {
+        i = n - 1;
+      }
       var s = tn - i;
-      var divS = this.cbs.slice(0,i);
-      var divE = this.cbs.slice(i+1);
-      var cb = cbs[i];
+      var divS = this.cbs.slice(0, i);
+      var divE = this.cbs.slice(i + 1);
+      var cb = this.cbs[i];
       var divB = cb.divide(s);
       divS.push(divB[0]);
       divE.unshift(divB[1]);
       return [xypic.Curve.CubicBeziers(divS), xypic.Curve.CubicBeziers(divE)];
+    },
+    slice: function (t0, t1) {
+      if (t0 >= t1) {
+        return undefined;
+      }
+      
+      if (t0 < 0) {
+        t0 = 0;
+      } 
+      if (t1 > 1) {
+        t1 = 1;
+      }
+      
+      if (t0 === 0 && t1 === 1) {
+        return this;
+      }
+      
+      var n = this.cbs.length;
+      var tn0 = t0 * n;
+      var tn1 = t1 * n;
+      var i0 = Math.floor(tn0);
+      var i1 = Math.floor(tn1);
+      if (i0 === n) {
+        i0 = n - 1;
+      }
+      if (i1 === n) {
+        i1 = n - 1;
+      }
+      var s0 = tn0 - i0;
+      var s1 = tn1 - i1;
+      var subBeziers;
+      if (i0 === i1) {
+        subBeziers = [this.cbs[i0].slice(s0, s1)];
+      } else {
+        subBeziers = this.cbs.slice(i0 + 1, i1);
+        subBeziers.push(this.cbs[i1].slice(0, s1));
+        subBeziers.unshift(this.cbs[i0].slice(s0, 1));
+      }
+      return xypic.Curve.CubicBeziers(subBeziers);
     },
     countOfSegments: function () { return this.cbs.length; },
     drawPrimitive: function (svg, dasharray) {
@@ -7236,7 +7359,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
-  xypic.Curve.CubicBSpline = xypic.Curve.Subclass({
+  // xypic.Curve.CubicBeziers factory class
+  xypic.Curve.CubicBSpline = MathJax.Object.Subclass({
     Init: function (s, intCps, e) {
       if (intCps.length < 1) {
         throw xypic.ExecutionError("the number of internal control points of cubic B-spline must be greater than or equal to 1");
@@ -7395,6 +7519,484 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       return cbs;
     },
     countOfSegments: function () { return this.cps.length - 1; }
+  });
+  
+  xypic.Curve.Line = MathJax.Object.Subclass({
+    Init: function (s, e) {
+      this.s = s;
+      this.e = e;
+    },
+    position: function (t) {
+      return xypic.Frame.Point(
+        this.s.x + t * (this.e.x - this.s.x),
+        this.s.y + t * (this.e.y - this.s.y)
+      );
+    },
+    slice: function (t0, t1) {
+      if (t0 >= t1) {
+        return undefined;
+      }
+      
+      if (t0 < 0) {
+        t0 = 0;
+      }
+      
+      if (t1 > 1) {
+        t1 = 1;
+      }
+      
+      if (t0 === 0 && t1 === 1) {
+        return this;
+      }
+      
+      var s = this.s;
+      var e = this.e;
+      var dx = e.x - s.x;
+      var dy = e.y - s.y;
+      var newS = xypic.Frame.Point(s.x + t0 * dx, s.y + t0 * dy);
+      var newE = xypic.Frame.Point(s.x + t1 * dx, s.y + t1 * dy);
+      return xypic.Curve.Line(newS, newE);
+    },
+    tOfIntersections: function (frame) {
+      if (frame.isPoint()) {
+        return []; // CAUTION: Point does not intersect with any curves.
+      }
+      
+      var s = this.s;
+      var e = this.e;
+      if (frame.isRect()) {
+        // find starting edge point
+        var rx = frame.x + frame.r;
+        var lx = frame.x - frame.l;
+        var uy = frame.y + frame.u;
+        var dy = frame.y - frame.d;
+        
+        var a0x = s.x;
+        var a0y = s.y;
+        var a1x = e.x - a0x;
+        var a1y = e.y - a0y;
+        var px = function (t) { return a0x + t * a1x; }
+        var py = function (t) { return a0y + t * a1y; }
+        
+        var ts = [];
+        var tsCandidate;
+        tsCandidate = xypic.Curve.solutionsOfLinearEq(a1x, a0x - rx);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfLinearEq(a1x, a0x - lx));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var y = py(t);
+          if (y >= dy && y <= uy) {
+            ts.push(t);
+          }
+        }
+        tsCandidate = xypic.Curve.solutionsOfLinearEq(a1y, a0y - uy);
+        tsCandidate = tsCandidate.concat(xypic.Curve.solutionsOfLinearEq(a1y, a0y - dy));
+        for (var i = 0; i < tsCandidate.length; i++) {
+          var t = tsCandidate[i];
+          var x = px(t);
+          if (x >= lx && x <= rx) {
+            ts.push(t);
+          }
+        }
+        
+        return ts;
+      } else if (frame.isCircle()) {
+        var pi = Math.PI;
+        var l = frame.l;
+        var r = frame.r;
+        var u = frame.u;
+        var d = frame.d;
+        var x0 = frame.x;
+        var y0 = frame.y;
+        var cx = x0 + (r - l) / 2;
+        var cy = y0 + (u - d) / 2;
+        var rx = (l + r) / 2;
+        var ry = (u + d) / 2;
+        
+        var sx = s.x;
+        var sy = s.y;
+        var ex = e.x;
+        var ey = e.y;
+        
+        var dx = ex - sx;
+        var dy = ey - sy;
+        var a0 = dy;
+        var b0 = -dx;
+        var c0 = dx * sy - dy * sx;
+        var a = a0 * rx;
+        var b = b0 * ry;
+        var c = c0 * rx + (rx - ry) * b0 * cy;
+        var aabb = a * a + b * b;
+        var d = a * cx + b * cy + c;
+        var e = -d / aabb;
+        var ff = aabb * rx * rx - d * d;
+        if (ff < 0) {
+          return [];
+        }
+        var f = Math.sqrt(ff) / aabb;
+        
+        var xp = a * e + b * f + cx;
+        var yp = b * e - a * f + cy;
+        var xm = a * e - b * f + cx;
+        var ym = b * e + a * f + cy;
+        
+        var eps = ry / rx;
+        var xp0 = xp;
+        var yp0 = eps * (yp - cy) + cy;
+        var xm0 = xm;
+        var ym0 = eps * (ym - cy) + cy;
+        
+        var tp, tm;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          tp = (xp0 - sx) / dx;
+          tm = (xm0 - sx) / dx;
+        } else {
+          tp = (yp0 - sy) / dy;
+          tm = (ym0 - sy) / dy;
+        }
+        
+        var ts = [];
+        if (tp >= 0 && tp <= 1) {
+          ts.push(tp);
+        }
+        if (tm >= 0 && tm <= 1) {
+          ts.push(tm);
+        }
+        return ts;
+      }
+    },
+    toShape: function (context, object, main, variant) {
+      // 多重線の幅、点線・破線の幅の基準
+      var env = context.env;
+      var thickness = AST.xypic.thickness;
+      var s = this.s;
+      var e = this.e;
+      if (s.x !== e.x || s.y !== e.y) {
+        var dx = e.x - s.x;
+        var dy = e.y - s.y;
+        var angle = Math.atan2(dy, dx);
+        var vshift;
+        var shape = xypic.Shape.none;
+        switch (main) {
+          case "=":
+            main = "-";
+            variant = "2";
+            break;
+          case "==":
+            main = "--";
+            variant = "2";
+            break;
+          case ':':
+          case '::':
+            main = ".";
+            variant = "2";
+            break;
+        }
+        
+        switch (main) {
+          case '':
+            // draw invisible line
+            env.angle = angle;
+            env.lastCurve = xypic.LastCurve.Line(s, e, env.p, env.c, undefined);
+            return shape;
+            
+          case '-':
+          case '.':
+          case '..':
+            switch (variant) {
+              case "2":
+                vshift = thickness / 2;
+                break;
+                
+              case "3":
+                vshift = thickness;
+                break;
+                
+              default:
+                vshift = 0;
+                break;
+            }
+            break;
+            
+          case '--':
+            var dash = 3 * thickness;
+            var len = Math.sqrt(dx * dx + dy * dy);
+            if (len >= dash) {
+              switch (variant) {
+                case "2":
+                  vshift = thickness / 2;
+                  break;
+                  
+                case "3":
+                  vshift = thickness;
+                  break;
+                  
+                default:
+                  vshift = 0;
+              }
+            }
+            break;
+            
+          case '~':
+          case '~~':
+            switch (variant) {
+              case "2":
+                vshift = 1.5 * thickness;
+                break;
+              case "3":
+                vshift = 2 * thickness;
+                break;
+              default:
+                vshift = 0
+            }
+            break;
+            
+          default:
+            // connect by arrowheads
+            var arrowBBox = object.boundingBox(context);
+            if (arrowBBox == undefined) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
+            }
+            
+            var arrowLen = arrowBBox.l + arrowBBox.r;
+            if (arrowLen == 0) {
+              arrowLen = AST.xypic.strokeWidth;
+            }
+            
+            var len = Math.sqrt(dx * dx + dy * dy);
+            var n = Math.floor(len / arrowLen);
+            if (n == 0) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
+            }
+            
+            vshift = Math.max(arrowBBox.u, arrowBBox.d);
+        }
+        
+        if (vshift !== undefined) {
+          var bbox = this.boundingBox(vshift);
+          shape = xypic.Shape.LineShape(this, object, main, variant, bbox);
+          context.appendShapeToFront(shape);
+          
+          env.angle = angle;
+          env.lastCurve = xypic.LastCurve.Line(s, e, env.p, env.c, shape);
+          return shape;
+        }
+      }
+      
+      env.angle = 0;
+      env.lastCurve = xypic.LastCurve.none;
+      return xypic.Shape.none;
+    },
+    boundingBox: function (vshift) {
+      var s = this.s;
+      var e = this.e;
+      var dx = e.x - s.x;
+      var dy = e.y - s.y;
+      var angle = Math.atan2(dy, dx);
+      var cx = vshift * Math.cos(angle + Math.PI/2);
+      var cy = vshift * Math.sin(angle + Math.PI/2);
+      return xypic.Frame.Rect(s.x, s.y, {
+        l:s.x-Math.min(s.x+cx, s.x-cx, e.x+cx, e.x-cx),
+        r:Math.max(s.x+cx, s.x-cx, e.x+cx, e.x-cx)-s.x,
+        u:Math.max(s.y+cy, s.y-cy, e.y+cy, e.y-cy)-s.y,
+        d:s.y-Math.min(s.y+cy, s.y-cy, e.y+cy, e.y-cy)
+      });
+    },
+    drawLine: function (svg, object, main, variant, holeRanges) {
+      if (holeRanges.isEmpty) {
+        this._drawLine(svg, object, main, variant);
+      } else {
+        var clippingRanges = xypic.Range(0, 1).differenceRanges(holeRanges);
+        var self = this;
+        clippingRanges.foreach(function (range) {
+          self.slice(range.start, range.end)._drawLine(svg, object, main, variant);
+        });
+      }
+    },
+    _drawLine: function (svg, object, main, variant) {
+      // 多重線の幅、点線・破線の幅の基準
+      var t = AST.xypic.thickness;
+      var s = this.s;
+      var e = this.e;
+      if (s.x !== e.x || s.y !== e.y) {
+        var dx = e.x - s.x;
+        var dy = e.y - s.y;
+        var angle = Math.atan2(dy, dx);
+        var shift = { x:0, y:0 };
+        
+        switch (main) {
+          case '':
+            // draw nothing
+            break;
+          case '-':
+            this.drawStraightLine(svg, s, e, shift, angle, t, variant, "");
+            break;
+          case '=':
+            this.drawStraightLine(svg, s, e, shift, angle, t, "2", "");
+            break;
+          case '.':
+          case '..':
+            this.drawStraightLine(svg, s, e, shift, angle, t, variant, "1 " + em2px(t));
+            break;
+          case ':':
+          case '::':
+            this.drawStraightLine(svg, s, e, shift, angle, t, "2", "1 " + em2px(t));
+            break;
+          case '--':
+          case '==':
+            var len = Math.sqrt(dx * dx + dy * dy);
+            var dash = 3 * t;
+            if (len >= dash) {
+              var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
+              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
+              this.drawStraightLine(svg, s, e, shift, angle, t, (main === "=="? "2" : variant), em2px(dash) + " " + em2px(dash));
+            }
+            break;
+          case '~':
+            var len = Math.sqrt(dx * dx + dy * dy);
+            var wave = 4 * t;
+            if (len >= wave) {
+              var n = Math.floor(len / wave);
+              var shiftLen = (len - n * wave) / 2;
+              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
+              var cx = t * Math.cos(angle + Math.PI / 2);
+              var cy = t * Math.sin(angle + Math.PI / 2);
+              var tx = t * Math.cos(angle);
+              var ty = t * Math.sin(angle);
+              var sx = s.x + shift.x;
+              var sy = -s.y - shift.y;
+              var d = "M" + em2px(sx) + "," + em2px(sy) +
+                " Q" + em2px(sx + tx + cx) + "," + em2px(sy - ty - cy) +
+                " " + em2px(sx + 2 * tx) + "," + em2px(sy - 2 * ty) +
+                " T" + em2px(sx + 4 * tx) + "," + em2px(sy - 4 * ty);
+              for (var i = 1; i < n; i++) {
+                d += " T" + em2px(sx + (4 * i + 2) * tx) + "," + em2px(sy - (4 * i + 2) * ty) +
+                  " T" + em2px(sx + (4 * i + 4) * tx) + "," + em2px(sy - (4 * i + 4) * ty);
+              }
+              this.drawSquigglyLineShape(svg, d, s, e, cx, cy, variant);
+            }
+            break;
+          case '~~':
+            var len = Math.sqrt(dx * dx + dy * dy);
+            var wave = 4 * t;
+            if (len >= wave) {
+              var n = Math.floor((len - wave) / 2 / wave);
+              var shiftLen = (len - wave) / 2 - n * wave;
+              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
+              var cx = t * Math.cos(angle + Math.PI / 2);
+              var cy = t * Math.sin(angle + Math.PI / 2);
+              var tx = t * Math.cos(angle);
+              var ty = t * Math.sin(angle);
+              var sx = s.x + shift.x;
+              var sy = -s.y - shift.y;
+              var d = "";
+              for (var i = 0; i <= n; i++) {
+                d += " M" + em2px(sx + 8 * i * tx) + "," + em2px(sy - 8 * i * ty) + 
+                  " Q" + em2px(sx + (8 * i + 1) * tx + cx) + "," + em2px(sy - (8 * i + 1) * ty - cy) + 
+                  " " + em2px(sx + (8 * i + 2) * tx) + "," + em2px(sy - (8 * i + 2) * ty) + 
+                  " T" + em2px(sx + (8 * i + 4) * tx) + "," + em2px(sy - (8 * i + 4) * ty);
+              }
+              this.drawSquigglyLineShape(svg, d, s, e, cx, cy, variant);
+            }
+            break;
+            
+          default:
+            // connect by arrowheads
+            var dummyEnv = xypic.Env();
+            dummyEnv.c = xypic.Env.originPosition;
+            var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+            var arrowBBox = object.boundingBox(dummyContext);
+            if (arrowBBox == undefined) {
+              return;
+            }
+            
+            var arrowLen = arrowBBox.l + arrowBBox.r;
+            if (arrowLen == 0) {
+              arrowLen = AST.xypic.strokeWidth;
+            }
+            
+            var len = Math.sqrt(dx * dx + dy * dy);
+            var n = Math.floor(len / arrowLen);
+            if (n == 0) {
+              return;
+            }
+            
+            var shiftLen = (len - n * arrowLen) / 2;
+            var cos = Math.cos(angle), sin = Math.sin(angle);
+            var ac = arrowLen * cos, as = arrowLen * sin;
+            var startX = s.x + (shiftLen + arrowBBox.l) * cos;
+            var startY = s.y + (shiftLen + arrowBBox.l) * sin;
+            
+            var dummyContext = xypic.DrawingContext(xypic.Shape.none, dummyEnv);
+            for (var i = 0; i < n; i++) {
+              dummyEnv.c = xypic.Frame.Point(startX + i * ac, startY + i * as);
+              dummyEnv.angle = angle;
+              object.toDropShape(dummyContext).draw(svg);
+            }
+        }
+      }
+    },
+    drawStraightLine: function (svg, s, e, shift, angle, t, variant, dasharray) {
+      if (variant === "3") {
+        var cx = t*Math.cos(angle+Math.PI/2);
+        var cy = t*Math.sin(angle+Math.PI/2);
+        svg.createSVGElement("line", {
+          x1:em2px(s.x+shift.x), y1:-em2px(s.y+shift.y),
+          x2:em2px(e.x), y2:-em2px(e.y), 
+          "stroke-dasharray":dasharray
+        });
+        svg.createSVGElement("line", {
+          x1:em2px(s.x+cx+shift.x), y1:-em2px(s.y+cy+shift.y),
+          x2:em2px(e.x+cx), y2:-em2px(e.y+cy), 
+          "stroke-dasharray":dasharray
+        });
+        svg.createSVGElement("line", {
+          x1:em2px(s.x-cx+shift.x), y1:-em2px(s.y-cy+shift.y),
+          x2:em2px(e.x-cx), y2:-em2px(e.y-cy), 
+          "stroke-dasharray":dasharray
+        });
+      } else if (variant === "2") {
+        var cx = t*Math.cos(angle+Math.PI/2)/2;
+        var cy = t*Math.sin(angle+Math.PI/2)/2;
+        svg.createSVGElement("line", {
+          x1:em2px(s.x+cx+shift.x), y1:-em2px(s.y+cy+shift.y),
+          x2:em2px(e.x+cx), y2:-em2px(e.y+cy), 
+          "stroke-dasharray":dasharray
+        });
+        svg.createSVGElement("line", {
+          x1:em2px(s.x-cx+shift.x), y1:-em2px(s.y-cy+shift.y),
+          x2:em2px(e.x-cx), y2:-em2px(e.y-cy), 
+          "stroke-dasharray":dasharray
+        });
+      } else {
+        svg.createSVGElement("line", {
+          x1:em2px(s.x+shift.x), y1:-em2px(s.y+shift.y),
+          x2:em2px(e.x), y2:-em2px(e.y), 
+          "stroke-dasharray":dasharray
+        });
+      }
+    },
+    drawSquigglyLineShape: function (svg, d, s, e, cx, cy, variant) {
+      var g1, g2;
+      if (variant === "3") {
+        svg.createSVGElement("path", { d:d });
+        g1 = svg.createGroup(svg.transformBuilder().translate(cx, cy));
+        g1.createSVGElement("path", { d:d });
+        g2 = svg.createGroup(svg.transformBuilder().translate(-cx, -cy));
+        g2.createSVGElement("path", { d:d });
+      } else if (variant === "2") {
+        g1 = svg.createGroup(svg.transformBuilder().translate(cx / 2, cy / 2));
+        g1.createSVGElement("path", { d:d });
+        g2 = svg.createGroup(svg.transformBuilder().translate(-cx / 2, -cy / 2));
+        g2.createSVGElement("path", { d:d });
+      } else {
+        svg.createSVGElement("path", { d:d });
+      }
+    }
   });
   
   xypic.CurveSegment = MathJax.Object.Subclass({
@@ -7895,24 +8497,25 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   
-  xypic.MostRecentLine = MathJax.Object.Subclass({});
+  xypic.LastCurve = MathJax.Object.Subclass({});
   
-  xypic.MostRecentLine.None = xypic.MostRecentLine.Subclass({
+  xypic.LastCurve.None = xypic.LastCurve.Subclass({
     Init: function () {}, 
     isDefined: false,
     segments: function () { return []; }
   });
   
-  xypic.MostRecentLine.Augment({}, {
-    none: xypic.MostRecentLine.None()
+  xypic.LastCurve.Augment({}, {
+    none: xypic.LastCurve.None()
   });
   
-  xypic.MostRecentLine.Line = xypic.MostRecentLine.Subclass({
-    Init: function (start, end, p, c) {
+  xypic.LastCurve.Line = xypic.LastCurve.Subclass({
+    Init: function (start, end, p, c, lineShape) {
       this.start = start;
       this.end = end;
       this.p = p;
       this.c = c;
+      this.lineShape = lineShape; // line from start to end.
     },
     isDefined: true,
     position: function (t) {
@@ -7927,33 +8530,63 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         this.c.y - this.p.y
       );
     },
-    posAngle: function (shaveP, shaveC, factor, slideEm) {
+    angle: function (t) {
+      var dx = this.c.x - this.p.x;
+      var dy = this.c.y - this.p.y;
+      if (dx === 0 && dy === 0) {
+        return 0;
+      }
+      return Math.atan2(dy, dx);
+    },
+    tOfPlace: function (shaveP, shaveC, factor, slideEm) {
       var start = (shaveP? this.start : this.p);
       var end = (shaveC? this.end : this.c);
       if (start.x === end.x && start.y === end.y) {
-        return { pos:start, angle:0 };
+        return 0;
       } else {
         var dx = end.x - start.x;
         var dy = end.y - start.y;
         var l = Math.sqrt(dx * dx + dy * dy);
-        var angle = Math.atan2(dy, dx);
+        var x, y;
         if (factor > 0.5) {
-          return {
-            pos:xypic.Frame.Point(
-              end.x - (1 - factor) * dx + slideEm * dx / l,
-              end.y - (1 - factor) * dy + slideEm * dy / l
-            ),
-            angle:angle
-          };
+          x = end.x - (1 - factor) * dx + slideEm * dx / l;
+          y = end.y - (1 - factor) * dy + slideEm * dy / l;
         } else {
-          return {
-            pos:xypic.Frame.Point(
-              start.x + factor * dx + slideEm * dx / l,
-              start.y + factor * dy + slideEm * dy / l
-            ),
-            angle:angle
-          };
+          x = start.x + factor * dx + slideEm * dx / l;
+          y = start.y + factor * dy + slideEm * dy / l;
         }
+        var tx = this.c.x - this.p.x;
+        var ty = this.c.y - this.p.y;
+        if (tx === 0 && ty === 0) {
+          return 0;
+        }
+        if (Math.abs(tx) > Math.abs(ty)) {
+          return (x - this.p.x) / tx;
+        } else {
+          return (y - this.p.y) / ty;
+        }
+      }
+    },
+    sliceHole: function (holeFrame, t) {
+      if (this.lineShape === undefined || holeFrame.isPoint()) {
+        return;
+      }
+      var shape = this.lineShape;
+      var line = shape.line;
+      var intersections = line.tOfIntersections(holeFrame); // ts of the line from start to end.
+      intersections.push(0);
+      intersections.push(1);
+      intersections.sort();
+      
+      var t0 = intersections[0], t1;
+      for (var i = 1; i < intersections.length; i++) {
+        var t1 = intersections[i];
+        var p = line.position((t1 + t0) / 2);
+        if (holeFrame.contains(p)) {
+          var range = xypic.Range(t0, t1);
+          shape.sliceHole(range);
+        }
+        t0 = t1;
       }
     },
     segments: function () {
@@ -7961,12 +8594,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
-  xypic.MostRecentLine.QuadBezier = xypic.MostRecentLine.Subclass({
-    Init: function (origBezier, shavePBezier, shavePCBezier) {
-      this.origBezier = origBezier;
-      this.shavePBezier = shavePBezier;
-      this.shavePCBezier = shavePCBezier;
-      this.shaveCBezier = null;
+  xypic.LastCurve.QuadBezier = xypic.LastCurve.Subclass({
+    Init: function (origBezier, tOfShavedStart, tOfShavedEnd, curveShape) {
+      this.origBezier = origBezier; // unshaved
+      this.tOfShavedStart = tOfShavedStart;
+      this.tOfShavedEnd = tOfShavedEnd;
+      this.curveShape = curveShape;
+      if (tOfShavedStart > 0) { curveShape.sliceHole(xypic.Range(0, tOfShavedStart)); }
+      if (tOfShavedEnd < 1) { curveShape.sliceHole(xypic.Range(tOfShavedEnd, 1)); }
     },
     isDefined: true,
     position: function (t) {
@@ -7975,49 +8610,73 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     derivative: function (t) {
       return this.origBezier.derivative(t);
     },
-    posAngle: function (shaveP, shaveC, factor, slide) {
-      var bezier;
-      if (shaveC) {
-        if (shaveP) {
-          bezier = this.shavePCBezier;
+    angle: function (t) {
+      return this.origBezier.angle(t);
+    },
+    tOfPlace: function (shaveP, shaveC, factor, slide) {
+      var offset;
+      var normalizer;
+      if (shaveP) {
+        offset = this.tOfShavedStart;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd - this.tOfShavedStart;
         } else {
-          if (this.shaveCBezier === null) {
-            this.shaveCBezier = this.origBezier.shaveEnd(this.origBezier.cp2);
-          }
-          bezier = this.shaveCBezier;
+          normalizer = 1  - this.tOfShavedStart;
         }
       } else {
-        if (shaveP) {
-          bezier = this.shavePBezier; 
+        offset = 0;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd;
         } else {
-          bezier = this.origBezier;
+          normalizer = 1;
         }
       }
+      var bezier = this.origBezier;
       var pos, angle;
-      if (bezier === undefined) {
-        pos = start;
-        angle = 0;
-      } else {
-        if (slide !== 0) {
-          var fd = bezier.length(factor);
-          factor = bezier.tOfLength(fd + slide);
-        }
-        pos = bezier.position(factor);
-        angle = bezier.angle(factor);
+      var normalizedFactor = offset + normalizer * factor;
+      if (slide !== 0) {
+        var fd = bezier.length(normalizedFactor);
+        normalizedFactor = bezier.tOfLength(fd + slide);
       }
-      return {pos:pos, angle:angle};
+      return normalizedFactor;
+    },
+    sliceHole: function (holeFrame, t) {
+      var shape = this.curveShape;
+      if (shape === undefined || holeFrame.isPoint()) {
+        return;
+      }
+      var curve = shape.curve;
+      var intersections = curve.tOfIntersections(holeFrame); // ts of the curve from p to c.
+      intersections.push(0);
+      intersections.push(1);
+      intersections.sort();
+      
+      var t0 = intersections[0], t1;
+      for (var i = 1; i < intersections.length; i++) {
+        var t1 = intersections[i];
+        if (t0 <= t && t <= t1) {
+          var p = bezier.position((t1 + t0) / 2);
+          if (holeFrame.contains(p)) {
+            var range = xypic.Range(t0, t1);
+            shape.sliceHole(range);
+          }
+        }
+        t0 = t1;
+      }
     },
     segments: function () {
       return [xypic.CurveSegment.QuadBezier(this.origBezier, 0, 1)];
     }
   });
   
-  xypic.MostRecentLine.CubicBezier = xypic.MostRecentLine.Subclass({
-    Init: function (origBezier, shavePBezier, shavePCBezier) {
-      this.origBezier = origBezier;
-      this.shavePBezier = shavePBezier;
-      this.shavePCBezier = shavePCBezier;
-      this.shaveCBezier = null;
+  xypic.LastCurve.CubicBezier = xypic.LastCurve.Subclass({
+    Init: function (origBezier, tOfShavedStart, tOfShavedEnd, curveShape) {
+      this.origBezier = origBezier; // unshaved
+      this.tOfShavedStart = tOfShavedStart;
+      this.tOfShavedEnd = tOfShavedEnd;
+      this.curveShape = curveShape;
+      if (tOfShavedStart > 0) { curveShape.sliceHole(xypic.Range(0, tOfShavedStart)); }
+      if (tOfShavedEnd < 1) { curveShape.sliceHole(xypic.Range(tOfShavedEnd, 1)); }
     },
     originalLine: function () {
       return this.originalLine;
@@ -8029,51 +8688,75 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     derivative: function (t) {
       return this.origBezier.derivative(t);
     },
-    posAngle: function (shaveP, shaveC, factor, slide) {
-      var bezier;
-      if (shaveC) {
-        if (shaveP) {
-          bezier = this.shavePCBezier;
+    angle: function (t) {
+      return this.origBezier.angle(t);
+    },
+    tOfPlace: function (shaveP, shaveC, factor, slide) {
+      var offset;
+      var normalizer;
+      if (shaveP) {
+        offset = this.tOfShavedStart;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd - this.tOfShavedStart;
         } else {
-          if (this.shaveCBezier === null) {
-            this.shaveCBezier = this.origBezier.shaveEnd(this.origBezier.cp3);
-          }
-          bezier = this.shaveCBezier;
+          normalizer = 1  - this.tOfShavedStart;
         }
       } else {
-        if (shaveP) {
-          bezier = this.shavePBezier; 
+        offset = 0;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd;
         } else {
-          bezier = this.origBezier;
+          normalizer = 1;
         }
       }
+      var bezier = this.origBezier;
       var pos, angle;
-      if (bezier === undefined) {
-        pos = start;
-        angle = 0;
-      } else {
-        if (slide !== 0) {
-          var fd = bezier.length(factor);
-          factor = bezier.tOfLength(fd + slide);
-        }
-        pos = bezier.position(factor);
-        angle = bezier.angle(factor);
+      var normalizedFactor = offset + normalizer * factor;
+      if (slide !== 0) {
+        var fd = bezier.length(normalizedFactor);
+        normalizedFactor = bezier.tOfLength(fd + slide);
       }
-      return {pos:pos, angle:angle};
+      return normalizedFactor;
+    },
+    sliceHole: function (holeFrame, t) {
+      var shape = this.curveShape;
+      if (shape === undefined || holeFrame.isPoint()) {
+        return;
+      }
+      var curve = shape.curve;
+      var intersections = curve.tOfIntersections(holeFrame); // ts of the curve from p to c.
+      intersections.push(0);
+      intersections.push(1);
+      intersections.sort();
+      
+      var t0 = intersections[0], t1;
+      for (var i = 1; i < intersections.length; i++) {
+        var t1 = intersections[i];
+        if (t0 <= t && t <= t1) {
+          var p = bezier.position((t1 + t0) / 2);
+          if (holeFrame.contains(p)) {
+            var range = xypic.Range(t0, t1);
+            shape.sliceHole(range);
+          }
+        }
+        t0 = t1;
+      }
     },
     segments: function () {
       return [xypic.CurveSegment.CubicBezier(this.origBezier, 0, 1)];
     }
   });
   
-  xypic.MostRecentLine.CubicBSpline = xypic.MostRecentLine.Subclass({
-    Init: function (s, e, origBeziers, shavePBeziers, shavePCBeziers) {
+  xypic.LastCurve.CubicBSpline = xypic.LastCurve.Subclass({
+    Init: function (s, e, origBeziers, tOfShavedStart, tOfShavedEnd, curveShape) {
       this.s = s;
       this.e = e;
-      this.origBeziers = origBeziers;
-      this.shavePBeziers = shavePBeziers;
-      this.shavePCBeziers = shavePCBeziers;
-      this.shaveCBeziers = null;
+      this.origBeziers = origBeziers; // unshaved
+      this.tOfShavedStart = tOfShavedStart;
+      this.tOfShavedEnd = tOfShavedEnd;
+      this.curveShape = curveShape;
+      if (tOfShavedStart > 0) { curveShape.sliceHole(xypic.Range(0, tOfShavedStart)); }
+      if (tOfShavedEnd < 1) { curveShape.sliceHole(xypic.Range(tOfShavedEnd, 1)); }
     },
     isDefined: true,
     position: function (t) {
@@ -8082,37 +8765,59 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     derivative: function (t) {
       return this.origBeziers.derivative(t);
     },
-    posAngle: function (shaveP, shaveC, factor, slide) {
-      var beziers;
-      if (shaveC) {
-        if (shaveP) {
-          beziers = this.shavePCBeziers;
+    angle: function (t) {
+      return this.origBeziers.angle(t);
+    },
+    tOfPlace: function (shaveP, shaveC, factor, slide) {
+      var offset;
+      var normalizer;
+      if (shaveP) {
+        offset = this.tOfShavedStart;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd - this.tOfShavedStart;
         } else {
-          if (this.shaveCBeziers === null) {
-            this.shaveCBeziers = this.origBeziers.shaveEnd(this.e);
-          }
-          beziers = this.shaveCBeziers;
+          normalizer = 1  - this.tOfShavedStart;
         }
       } else {
-        if (shaveP) {
-          beziers = this.shavePBeziers; 
+        offset = 0;
+        if (shaveC) {
+          normalizer = this.tOfShavedEnd;
         } else {
-          beziers = this.origBeziers;
+          normalizer = 1;
         }
       }
+      var beziers = this.origBeziers;
       var pos, angle;
-      if (beziers === undefined) {
-        pos = start;
-        angle = 0;
-      } else {
-        if (slide !== 0) {
-          var fd = beziers.length(factor);
-          factor = beziers.tOfLength(fd + slide);
-        }
-        pos = beziers.position(factor);
-        angle = beziers.angle(factor);
+      var normalizedFactor = offset + normalizer * factor;
+      if (slide !== 0) {
+        var fd = beziers.length(normalizedFactor);
+        normalizedFactor = beziers.tOfLength(fd + slide);
       }
-      return {pos:pos, angle:angle};
+      return normalizedFactor;
+    },
+    sliceHole: function (holeFrame, t) {
+      var shape = this.curveShape;
+      if (shape === undefined || holeFrame.isPoint()) {
+        return;
+      }
+      var curve = shape.curve;
+      var intersections = curve.tOfIntersections(holeFrame); // ts of the curve from p to c.
+      intersections.push(0);
+      intersections.push(1);
+      intersections.sort();
+      
+      var t0 = intersections[0], t1;
+      for (var i = 1; i < intersections.length; i++) {
+        var t1 = intersections[i];
+        if (t0 <= t && t <= t1) {
+          var p = bezier.position((t1 + t0) / 2);
+          if (holeFrame.contains(p)) {
+            var range = xypic.Range(t0, t1);
+            shape.sliceHole(range);
+          }
+        }
+        t0 = t1;
+      }
     },
     segments: function () {
       var segments = new Array(this.origBeziers.length);
@@ -8200,7 +8905,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.stackFrames = FP.List.empty;
       this.stack = FP.List.empty;
       this.angle = 0; // radian
-      this.mostRecentLine = xypic.MostRecentLine.none;
+      this.lastCurve = xypic.LastCurve.none;
       this.p = this.c = xypic.Env.originPosition;
       this.shouldCapturePos = false;
       this.capturedPositions = FP.List.empty;
@@ -8311,7 +9016,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           savedPositionDesc += id.toString()+":"+this.savedPosition[id];
         }
       }
-      return "Env\n  p:"+this.p+"\n  c:"+this.c+"\n  angle:"+this.angle+"\n  mostRecentLine:"+this.mostRecentLine+"\n  savedPosition:{"+savedPositionDesc+"}\n  origin:{x:"+this.origin.x+", y:"+this.origin.y+"}\n  xBase:{x:"+this.xBase.x+", y:"+this.xBase.y+"}\n  yBase:{x:"+this.yBase.x+", y:"+this.yBase.y+"}\n  stackFrames:"+this.stackFrames+"\n  stack:"+this.stack+"\n  shouldCapturePos:"+this.shouldCapturePos+"\n  capturedPositions:"+this.capturedPositions;
+      return "Env\n  p:"+this.p+"\n  c:"+this.c+"\n  angle:"+this.angle+"\n  lastCurve:"+this.lastCurve+"\n  savedPosition:{"+savedPositionDesc+"}\n  origin:{x:"+this.origin.x+", y:"+this.origin.y+"}\n  xBase:{x:"+this.xBase.x+", y:"+this.xBase.y+"}\n  yBase:{x:"+this.yBase.x+", y:"+this.yBase.y+"}\n  stackFrames:"+this.stackFrames+"\n  stack:"+this.stack+"\n  shouldCapturePos:"+this.shouldCapturePos+"\n  capturedPositions:"+this.capturedPositions;
     }
   }, {
     originPosition: xypic.Frame.Point(0, 0),
@@ -8429,7 +9134,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   AST.Pos.Place.Augment({
     toShape: function (context) {
       var env = context.env;
-      if (env.mostRecentLine.isDefined) {
+      if (env.lastCurve.isDefined) {
         var place = this.place;
         var start, end, f, dimen;
         var shouldShaveP = (place.shaveP > 0);
@@ -8457,10 +9162,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         dimen = HTMLCSS.length2em(place.slide.dimen.getOrElse("0"));
         var jot = AST.xypic.jot;
         var slideEm = dimen + (jotP - jotC) * jot;
-        var posAngle = env.mostRecentLine.posAngle(shouldShaveP, shouldShaveC, f, slideEm);
-        env.c = posAngle.pos;
-        env.angle = posAngle.angle;
+        var t = env.lastCurve.tOfPlace(shouldShaveP, shouldShaveC, f, slideEm);
+        var pos = env.lastCurve.position(t);
+        var angle = env.lastCurve.angle(t);
+        env.c = pos;
+        env.angle = angle;
+        return t;
       }
+      return undefined;
     }
   });
   
@@ -8530,26 +9239,26 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   AST.Place.Intercept.Augment({
     value: function (context) {
       var env = context.env;
-      if (!env.mostRecentLine.isDefined) {
+      if (!env.lastCurve.isDefined) {
         return undefined;
       }
       
       var tmpEnv = env.duplicate();
       tmpEnv.angle = 0;
-      tmpEnv.mostRecentLine = xypic.MostRecentLine.none;
+      tmpEnv.lastCurve = xypic.LastCurve.none;
       tmpEnv.p = tmpEnv.c = xypic.Env.originPosition;
       var tmpContext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
       
       var box = this.pos.toShape(tmpContext);
       context.appendShapeToFront(tmpContext.shape);
       
-      if (!tmpEnv.mostRecentLine.isDefined) {
-        tmpEnv.mostRecentLine = xypic.MostRecentLine.Line(tmpEnv.p, tmpEnv.c, tmpEnv.p, tmpEnv.c);
+      if (!tmpEnv.lastCurve.isDefined) {
+        tmpEnv.lastCurve = xypic.LastCurve.Line(undefined, tmpEnv.p, tmpEnv.c, tmpEnv.p, tmpEnv.c, undefined);
       }
       
       var intersec = [];
-      var thisSegs = env.mostRecentLine.segments();
-      var thatSegs = tmpEnv.mostRecentLine.segments();
+      var thisSegs = env.lastCurve.segments();
+      var thatSegs = tmpEnv.lastCurve.segments();
       
       for (var i = 0; i < thisSegs.length; i++) {
         for (var j = 0; j < thatSegs.length; j++) {
@@ -8562,8 +9271,8 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         console.log("perhaps no curve intersection.");
         
         // Levenberg-Marqardt Method
-        var line0 = env.mostRecentLine;
-        var line1 = tmpEnv.mostRecentLine;
+        var line0 = env.lastCurve;
+        var line1 = tmpEnv.lastCurve;
         
         var n = 100; // maxIterations
         var goalAccuracy = 1e-5;
@@ -8745,7 +9454,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var tmpEnvContext = context.duplicateEnv();
       var tmpEnv = tmpEnvContext.env;
       tmpEnv.angle = 0;
-      tmpEnv.p = tmpEnv.c = xypic.Frame.Point(0, 0);
+      tmpEnv.p = tmpEnv.c = xypic.Env.originPosition;
       tmpEnvContext.shape = xypic.Shape.none;
       var dropShape = this.toDropShape(tmpEnvContext);
       return dropShape.getBoundingBox();
@@ -8754,63 +9463,28 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   
   AST.ObjectBox.Augment({
     toConnectShape: function (context, object) {
+      // 多重線の幅、点線・破線の幅の基準
       var env = context.env;
-      if (env.c === undefined || env.p === undefined) {
-        env.angle = 0;
-        env.mostRecentLine = xypic.MostRecentLine.none;
-        return xypic.Shape.none;
-      }
+      var t = AST.xypic.thickness;
       var s = env.p.edgePoint(env.c.x, env.c.y);
       var e = env.c.edgePoint(env.p.x, env.p.y);
       if (s.x !== e.x || s.y !== e.y) {
-        var objectBBox = object.boundingBox(context);
-        if (objectBBox == undefined) {
-          env.angle = 0;
-          env.mostRecentLine = xypic.MostRecentLine.none;
-          return xypic.Shape.none;
-        }
-        
-        var objectWidth = objectBBox.l + objectBBox.r;
-        var objectLen = objectWidth;
-        if (objectLen == 0) {
-          objectLen = AST.xypic.strokeWidth;
-        }
-        
-        var dx = e.x-s.x;
-        var dy = e.y-s.y;
-        var len = Math.sqrt(dx * dx + dy * dy);
-        var n = Math.floor(len / objectLen);
-        if (n == 0) {
-          env.angle = 0;
-          env.mostRecentLine = xypic.MostRecentLine.none;
-          return xypic.Shape.none;
-        }
-        
-        var angle = Math.atan2(dy, dx);
-        var cos = Math.cos(angle), sin = Math.sin(angle);
-        var odx = objectLen * cos, ody = objectLen * sin;
-        var shiftLen = (len - n * objectLen + objectLen - objectWidth) / 2 + objectBBox.l;
-        var startX = s.x + shiftLen * cos;
-        var startY = s.y + shiftLen * sin;
-        
-        var tmpContext = xypic.DrawingContext(xypic.Shape.none, env);
-        var c = env.c;
-        for (var i = 0; i < n; i++) {
-          env.c = xypic.Frame.Point(startX + i * odx, startY + i * ody);
-          env.angle = 0;
-          object.toDropShape(tmpContext);
-        }
-        env.angle = angle;
-        env.c = c;
-        env.mostRecentLine = xypic.MostRecentLine.Line(s, e, env.p, env.c);
-        
-        var connectionShape = tmpContext.shape;
-        context.appendShapeToFront(connectionShape);
-        return connectionShape;
+        var shape = xypic.Curve.Line(s, e).toShape(context, object, "object", "");
+        return shape;
+      } else {
+        env.angle = 0;
+        env.lastCurve = xypic.LastCurve.none;
+        return xypic.Shape.none;
       }
-      env.angle = 0;
-      env.mostRecentLine = xypic.MostRecentLine.none;
-      return xypic.Shape.none;
+    },
+    boundingBox: function (context) {
+      var tmpEnvContext = context.duplicateEnv();
+      var tmpEnv = tmpEnvContext.env;
+      tmpEnv.angle = 0;
+      tmpEnv.p = tmpEnv.c = xypic.Env.originPosition;
+      tmpEnvContext.shape = xypic.Shape.none;
+      var dropShape = this.toDropShape(tmpEnvContext);
+      return dropShape.getBoundingBox();
     }
   });
   
@@ -9580,139 +10254,11 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var s = env.p.edgePoint(env.c.x, env.c.y);
       var e = env.c.edgePoint(env.p.x, env.p.y);
       if (s.x !== e.x || s.y !== e.y) {
-        var dx = e.x - s.x;
-        var dy = e.y - s.y;
-        var angle = Math.atan2(dy, dx);
-        var shift = { x:0, y:0 };
-        var shape = xypic.Shape.none;
-        
-        switch (this.main) {
-          case '':
-            // draw nothing
-            break;
-          case '-':
-            shape = xypic.Shape.StraightLineShape(s, e, shift, angle, t, this.variant, "");
-            break;
-          case '=':
-            shape = xypic.Shape.StraightLineShape(s, e, shift, angle, t, "2", "");
-            break;
-          case '.':
-          case '..':
-            shape = xypic.Shape.StraightLineShape(s, e, shift, angle, t, this.variant, "1 " + em2px(t));
-            break;
-          case ':':
-          case '::':
-            shape = xypic.Shape.StraightLineShape(s, e, shift, angle, t, "2", "1 " + em2px(t));
-            break;
-          case '--':
-          case '==':
-            var len = Math.sqrt(dx * dx + dy * dy);
-            var dash = 3 * t;
-            if (len >= dash) {
-              var shiftLen = (len - dash) / 2 - Math.floor((len - dash) / 2 / dash) * dash;
-              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
-              shape = xypic.Shape.StraightLineShape(s, e, shift, angle, t, (this.main === "=="? "2" : this.variant), em2px(dash) + " " + em2px(dash));
-            }
-            break;
-          case '~':
-            var len = Math.sqrt(dx * dx + dy * dy);
-            var wave = 4 * t;
-            if (len >= wave) {
-              var n = Math.floor(len / wave);
-              var shiftLen = (len - n * wave) / 2;
-              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
-              var cx = t * Math.cos(angle + Math.PI / 2);
-              var cy = t * Math.sin(angle + Math.PI / 2);
-              var tx = t * Math.cos(angle);
-              var ty = t * Math.sin(angle);
-              var sx = s.x + shift.x;
-              var sy = -s.y - shift.y;
-              var d = "M" + em2px(sx) + "," + em2px(sy) +
-                " Q" + em2px(sx + tx + cx) + "," + em2px(sy - ty - cy) +
-                " " + em2px(sx + 2 * tx) + "," + em2px(sy - 2 * ty) +
-                " T" + em2px(sx + 4 * tx) + "," + em2px(sy - 4 * ty);
-              for (var i = 1; i < n; i++) {
-                d += " T" + em2px(sx + (4 * i + 2) * tx) + "," + em2px(sy - (4 * i + 2) * ty) +
-                  " T" + em2px(sx + (4 * i + 4) * tx) + "," + em2px(sy - (4 * i + 4) * ty);
-              }
-              shape = xypic.Shape.SquigglyLineShape(d, s, e, cx, cy, this.variant);
-            }
-            break;
-          case '~~':
-            var len = Math.sqrt(dx * dx + dy * dy);
-            var wave = 4 * t;
-            if (len >= wave) {
-              var n = Math.floor((len - wave) / 2 / wave);
-              var shiftLen = (len - wave) / 2 - n * wave;
-              shift = { x:shiftLen * Math.cos(angle), y:shiftLen * Math.sin(angle) };
-              var cx = t * Math.cos(angle + Math.PI / 2);
-              var cy = t * Math.sin(angle + Math.PI / 2);
-              var tx = t * Math.cos(angle);
-              var ty = t * Math.sin(angle);
-              var sx = s.x + shift.x;
-              var sy = -s.y - shift.y;
-              var d = "";
-              for (var i = 0; i <= n; i++) {
-                d += " M" + em2px(sx + 8 * i * tx) + "," + em2px(sy - 8 * i * ty) + 
-                  " Q" + em2px(sx + (8 * i + 1) * tx + cx) + "," + em2px(sy - (8 * i + 1) * ty - cy) + 
-                  " " + em2px(sx + (8 * i + 2) * tx) + "," + em2px(sy - (8 * i + 2) * ty) + 
-                  " T" + em2px(sx + (8 * i + 4) * tx) + "," + em2px(sy - (8 * i + 4) * ty);
-              }
-              shape = xypic.Shape.SquigglyLineShape(d, s, e, cx, cy, this.variant);
-            }
-            break;
-            
-          default:
-            // connect by arrowheads
-            var arrowBBox = object.boundingBox(context);
-            if (arrowBBox == undefined) {
-              env.angle = 0;
-              env.mostRecentLine = xypic.MostRecentLine.none;
-              return xypic.Shape.none;
-            }
-            
-            var arrowLen = arrowBBox.l + arrowBBox.r;
-            if (arrowLen == 0) {
-              arrowLen = AST.xypic.strokeWidth;
-            }
-            
-            var len = Math.sqrt(dx * dx + dy * dy);
-            var n = Math.floor(len / arrowLen);
-            if (n == 0) {
-              env.angle = 0;
-              env.mostRecentLine = xypic.MostRecentLine.none;
-              return xypic.Shape.none;
-            }
-            
-            var c = env.c;
-            var shiftLen = (len - n * arrowLen) / 2;
-            var cos = Math.cos(angle), sin = Math.sin(angle);
-            var ac = arrowLen * cos, as = arrowLen * sin;
-            var startX = s.x + (shiftLen + arrowBBox.l) * cos;
-            var startY = s.y + (shiftLen + arrowBBox.l) * sin;
-            
-            var tmpContext = xypic.DrawingContext(xypic.Shape.none, env);
-            for (var i = 0; i < n; i++) {
-              env.c = xypic.Frame.Point(startX + i * ac, startY + i * as);
-              env.angle = angle;
-              object.toDropShape(tmpContext);
-            }
-            env.c = c;
-            env.angle = angle;
-            env.mostRecentLine = xypic.MostRecentLine.Line(s, e, env.p, env.c);
-            shape = tmpContext.shape;
-            context.appendShapeToFront(shape);
-            
-            return shape;            
-        }
-        
-        env.angle = angle;
-        env.mostRecentLine = xypic.MostRecentLine.Line(s, e, env.p, env.c);
-        context.appendShapeToFront(shape);
+        var shape = xypic.Curve.Line(s, e).toShape(context, this, this.main, this.variant);
         return shape;
       } else {
         env.angle = 0;
-        env.mostRecentLine = xypic.MostRecentLine.none;
+        env.lastCurve = xypic.LastCurve.none;
         return xypic.Shape.none;
       }
     }
@@ -9757,7 +10303,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       switch (controlPoints.length) {
         case 0:
           if (s.x === e.x && s.y === e.y) {
-            env.mostRecentLine = xypic.MostRecentLine.none;
+            env.lastCurve = xypic.LastCurve.none;
             env.angle = 0;
             return xypic.Shape.none;
           }
@@ -9769,54 +10315,59 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           
         case 1:
           var origBezier = xypic.Curve.QuadBezier(s, controlPoints[0], e);
-          var shavePBezier = origBezier.shaveStart(s);
-          var shavePCBezier;
-          if (shavePBezier !== undefined) {
-            shavePCBezier = shavePBezier.shaveEnd(e);
-          }
-          if (shavePCBezier === undefined) {
+          var tOfShavedStart = origBezier.tOfShavedStart(s);
+          var tOfShavedEnd = origBezier.tOfShavedEnd(e);
+          if (tOfShavedStart === undefined || tOfShavedEnd === undefined || tOfShavedStart >= tOfShavedEnd) {
               env.angle = 0;
-              env.mostRecentLine = xypic.MostRecentLine.none;
+              env.lastCurve = xypic.LastCurve.none;
               return xypic.Shape.none;
           }
-          shape = shavePCBezier.toShape(context, objectForDrop, objectForConnect);
-          env.mostRecentLine = xypic.MostRecentLine.QuadBezier(origBezier, shavePBezier, shavePCBezier);
+          shape = origBezier.toShape(context, objectForDrop, objectForConnect);
+          if (shape.isNone) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
+          }
+          env.lastCurve = xypic.LastCurve.QuadBezier(origBezier, tOfShavedStart, tOfShavedEnd, shape);
           env.angle = Math.atan2(e.y - s.y, e.x - s.x);
           break;
           
         case 2:
           var origBezier = xypic.Curve.CubicBezier(s, controlPoints[0], controlPoints[1], e);
-          var shavePBezier = origBezier.shaveStart(s);
-          var shavePCBezier;
-          if (shavePBezier !== undefined) {
-            shavePCBezier = shavePBezier.shaveEnd(e);
+          var tOfShavedStart = origBezier.tOfShavedStart(s);
+          var tOfShavedEnd = origBezier.tOfShavedEnd(e);
+          if (tOfShavedStart === undefined || tOfShavedEnd === undefined || tOfShavedStart >= tOfShavedEnd) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
           }
-          var cb = shavePCBezier;
-          if (cb === undefined) {
-            env.mostRecentLine = xypic.MostRecentLine.none;
-            env.angle = 0;
-            return xypic.Shape.none;
+          shape = origBezier.toShape(context, objectForDrop, objectForConnect);
+          if (shape.isNone) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
           }
-          
-          shape = shavePCBezier.toShape(context, objectForDrop, objectForConnect);
-          env.mostRecentLine = xypic.MostRecentLine.CubicBezier(origBezier, shavePBezier, shavePCBezier);
+          env.lastCurve = xypic.LastCurve.CubicBezier(origBezier, tOfShavedStart, tOfShavedEnd, shape);
           env.angle = Math.atan2(e.y - s.y, e.x - s.x);
           break;
           
         default:
           var spline = xypic.Curve.CubicBSpline(s, controlPoints, e);
           var origBeziers = xypic.Curve.CubicBeziers(spline.toCubicBeziers());
-          var shavePBeziers = origBeziers.shaveStart(s);
-          var shavePCBeziers = shavePBeziers.shaveEnd(e);
-          
-          var n = shavePCBeziers.countOfSegments;
-          if (n == 0) {
-            env.mostRecentLine = xypic.MostRecentLine.none;
-            env.angle = 0;
-            return xypic.Shape.none;
+          var tOfShavedStart = origBeziers.tOfShavedStart(s);
+          var tOfShavedEnd = origBeziers.tOfShavedEnd(e);
+          if (tOfShavedStart === undefined || tOfShavedEnd === undefined || tOfShavedStart >= tOfShavedEnd) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
           }
-          shape = shavePCBeziers.toShape(context, objectForDrop, objectForConnect);
-          env.mostRecentLine = xypic.MostRecentLine.CubicBSpline(s, e, origBeziers, shavePBeziers, shavePCBeziers);
+          shape = origBeziers.toShape(context, objectForDrop, objectForConnect);
+          if (shape.isNone) {
+              env.angle = 0;
+              env.lastCurve = xypic.LastCurve.none;
+              return xypic.Shape.none;
+          }
+          env.lastCurve = xypic.LastCurve.CubicBSpline(s, e, origBeziers, tOfShavedStart, tOfShavedEnd, shape);
           env.angle = Math.atan2(e.y - s.y, e.x - s.x);
           break;
       }
@@ -9895,7 +10446,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       
       if (Math.abs(d) < AST.xypic.machinePrecision) {
         console.log("there is no intersection point.");
-        return xypic.Frame.Point(0, 0);
+        return xypic.Env.originPosition;
       }
       var x = -(b1 * c0 - b0 * c1)/d;
       var y = (a1 * c0 - a0 * c1)/d;
@@ -9916,7 +10467,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       
       if (Math.abs(d) < AST.xypic.machinePrecision) {
         console.log("there is no intersection point.");
-        return xypic.Frame.Point(0, 0);
+        return xypic.Env.originPosition;
       }
       var x = -(b1 * c0 - b0 * c1)/d;
       var y = (a1 * c0 - a0 * c1)/d;
@@ -10951,7 +11502,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       env.prevSegmentEndPoint = c;
       var s = env.p.edgePoint(c.x, c.y);
       var e = env.c.edgePoint(p.x, p.y);
-      env.mostRecentLine = xypic.MostRecentLine.Line(s, e, p, c);
+      env.lastCurve = xypic.LastCurve.Line(undefined, s, e, p, c, undefined); // TODO これでよいのか？
       env.angle = Math.atan2(c.y - p.y, c.x - p.x);
     },
     toLabelsShape: function (context) {
@@ -10976,13 +11527,17 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var env = context.env;
       var p = env.p;
       var c = env.c;
-      this.anchor.toShape(context);
+      var t = this.anchor.toShape(context);
       var labelmargin = this.labelmargin;
       if (labelmargin !== 0) {
         var angle = Math.atan2(c.y - p.y, c.x - p.x) + Math.PI/2;
         env.c = env.c.move(env.c.x + labelmargin * Math.cos(angle), env.c.y + labelmargin * Math.sin(angle));
       }
+      var lastCurve = env.lastCurve;
       this.it.toDropShape(context);
+      if (this.shouldSliceHole && lastCurve.isDefined && t !== undefined) {
+        lastCurve.sliceHole(env.c, t);
+      }
       this.aliasOption.foreach(function (alias) {
         env.savePos(alias, xypic.Saving.Position(env.c));
       });
@@ -10990,15 +11545,18 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   AST.Command.Path.Label.Above.Augment({
-    labelmargin: AST.xypic.labelmargin
+    labelmargin: AST.xypic.labelmargin,
+    shouldSliceHole: false
   });
   
   AST.Command.Path.Label.Below.Augment({
-    labelmargin: -AST.xypic.labelmargin
+    labelmargin: -AST.xypic.labelmargin,
+    shouldSliceHole: false
   });
   
   AST.Command.Path.Label.At.Augment({
-    labelmargin: 0
+    labelmargin: 0,
+    shouldSliceHole: true
   });
   
   MathJax.Hub.Startup.signal.Post("HTML-CSS Xy-pic Ready");
