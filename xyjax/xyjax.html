@@ -513,6 +513,46 @@ Also see [[AdvancedOptions]]</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
+<div title="ArrowFeature" creator="isao" modifier="isao" created="201109031827" modified="201209131320" tags="Sample" changecount="136">
+<pre>\[
+\begin{xy}
+&lt;3pc,0pc&gt;:(0,0),
+0*+\txt{start}=&quot;start&quot;,
+(1,0) *+=+[o][F-]{0}=&quot;0&quot;,
+(2,0) *+=+[o][F-]{1}=&quot;1&quot;,
+(3,0) *+=+[o][F-]{2}=&quot;2&quot;,
+(4,0) *+=+[o][F=]{3}=&quot;3&quot;,
+
+\POS &quot;start&quot; \ar &quot;0&quot;
+\POS &quot;0&quot; \ar@(r,u) &quot;0&quot;^b \ar &quot;1&quot;_a
+\POS &quot;1&quot; \ar &quot;2&quot;^b \ar@(r,d) &quot;1&quot;_a
+\POS &quot;2&quot; \ar &quot;3&quot;^b
+  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; _(.2)a &quot;1&quot;
+\POS &quot;3&quot; \ar `ur^l &quot;0&quot; `^dr &quot;0&quot;^b &quot;0&quot;
+  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; &quot;1&quot;
+\end{xy}
+\]
+
+Source Code:
+{{{
+\begin{xy}
+&lt;3pc,0pc&gt;:(0,0),
+0*+\txt{start}=&quot;start&quot;,
+(1,0) *+{0} *\cir&lt;.6pc&gt;{}=&quot;0&quot;,
+(2,0) *+{1} *\cir&lt;.6pc&gt;{}=&quot;1&quot;,
+(3,0) *+{2} *\cir&lt;.6pc&gt;{}=&quot;2&quot;,
+(4,0) *+{3} *\cir&lt;.45pc&gt;{}*\cir&lt;.6pc&gt;{}=&quot;3&quot;,
+
+\POS &quot;start&quot; \ar &quot;0&quot;
+\POS &quot;0&quot; \ar@(r,u) &quot;0&quot;^b \ar &quot;1&quot;_a
+\POS &quot;1&quot; \ar &quot;2&quot;^b \ar@(r,d) &quot;1&quot;_a
+\POS &quot;2&quot; \ar &quot;3&quot;^b
+  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; _(.2)a &quot;1&quot;
+\POS &quot;3&quot; \ar `ur^l &quot;0&quot; `^dr &quot;0&quot;^b &quot;0&quot;
+  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; &quot;1&quot;
+\end{xy}
+}}}</pre>
+</div>
 <div title="Arrowheads" creator="YourName" modifier="isao" created="201108091053" modified="201208271530" tags="Sample" changecount="22">
 <pre>\[
 \begin{xy}
@@ -704,7 +744,7 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="Circles" creator="isao" modifier="isao" created="201108101433" modified="201108271152" tags="Sample" changecount="4">
+<div title="Circles" creator="isao" modifier="isao" created="201108101433" modified="201209131318" tags="Sample" changecount="9">
 <pre>\[
 \begin{xy}
 0;&lt;1em,0em&gt;:
@@ -829,98 +869,6 @@ Source code:
 <pre>XyJax
 [[Samples]]
 </pre>
-</div>
-<div title="DeterministicFiniteAutomata" creator="isao" modifier="isao" created="201109031827" modified="201109041015" tags="Sample" changecount="109">
-<pre>\[
-\begin{xy}
-&lt;3pc,0pc&gt;:(0,0),
-(1,0) *+{0} *\cir&lt;.6pc&gt;{}=&quot;0&quot;,
-(2,0) *+{1} *\cir&lt;.6pc&gt;{}=&quot;1&quot;,
-(3,0) *+{2} *\cir&lt;.6pc&gt;{}=&quot;2&quot;,
-(4,0) *+{3} *\cir&lt;.45pc&gt;{}*\cir&lt;.6pc&gt;{}=&quot;3&quot;,
-
-0*+{start}=&quot;start&quot;
-\PATH ~={**@{-}} ~+{|&gt;*@{&gt;}}
-'&quot;0&quot;
-'&quot;1&quot; _a
-'&quot;2&quot; ^b
-&quot;3&quot; ^b
-
-\POS &quot;3&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`ru^l &quot;0&quot; &lt;-1pt&gt;
-`^rd &quot;0&quot; _b
-&quot;0&quot;
-
-\POS &quot;3&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`rd_l &quot;1&quot; &lt;1pt&gt;
-`_ru &quot;1&quot;
-&quot;1&quot;
-
-\POS &quot;2&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`rd_l &quot;1&quot; &lt;1pt&gt;
-`_ru &quot;1&quot; _a
-&quot;1&quot;
-
-\POS &quot;0&quot;+/ru 1.2pc/*{\scriptstyle b}, &quot;0&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`r^d/.7pc &quot;0&quot; &lt;1pt&gt;
-&quot;0&quot;
-
-\POS &quot;1&quot;+/rd 1.2pc/*{\scriptstyle a}, &quot;1&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`r_u/.7pc &quot;1&quot; &lt;-1pt&gt;
-&quot;1&quot;
-\end{xy}
-\]
-
-Source Code:
-{{{
-\begin{xy}
-&lt;3pc,0pc&gt;:(0,0),
-(1,0) *+{0} *\cir&lt;.6pc&gt;{}=&quot;0&quot;,
-(2,0) *+{1} *\cir&lt;.6pc&gt;{}=&quot;1&quot;,
-(3,0) *+{2} *\cir&lt;.6pc&gt;{}=&quot;2&quot;,
-(4,0) *+{3} *\cir&lt;.45pc&gt;{}*\cir&lt;.6pc&gt;{}=&quot;3&quot;,
-
-0*+{start}=&quot;start&quot;
-\PATH ~={**@{-}} ~+{|&gt;*@{&gt;}}
-'&quot;0&quot;
-'&quot;1&quot; _a
-'&quot;2&quot; ^b
-&quot;3&quot; ^b
-
-\POS &quot;3&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`ru^l &quot;0&quot; &lt;-1pt&gt;
-`^rd &quot;0&quot; _b
-&quot;0&quot;
-
-\POS &quot;3&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`rd_l &quot;1&quot; &lt;1pt&gt;
-`_ru &quot;1&quot;
-&quot;1&quot;
-
-\POS &quot;2&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`rd_l &quot;1&quot; &lt;1pt&gt;
-`_ru &quot;1&quot; _a
-&quot;1&quot;
-
-\POS &quot;0&quot;+/ru 1.2pc/*{\scriptstyle b}, &quot;0&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`r^d/.7pc &quot;0&quot; &lt;1pt&gt;
-&quot;0&quot;
-
-\POS &quot;1&quot;+/rd 1.2pc/*{\scriptstyle a}, &quot;1&quot;
-\PATH ~={**@{-}} ~&gt;{|&gt;*@{&gt;}}
-`r_u/.7pc &quot;1&quot; &lt;-1pt&gt;
-&quot;1&quot;
-\end{xy}
-}}}</pre>
 </div>
 <div title="Download" creator="isao" modifier="isao" created="201108081329" modified="201108111426" changecount="2">
 <pre>See https://github.com/sonoisa/XyJax
@@ -1618,8 +1566,20 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="Pullback" creator="isao" modifier="isao" created="201108060725" modified="201108211014" tags="Sample" changecount="15">
+<div title="Pullback" creator="isao" modifier="isao" created="201108060725" modified="201209131226" tags="Sample" changecount="18">
 <pre>\[
+\begin{xy}
+&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
+&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
+\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
+\POS &quot;x&quot; \ar_{f} &quot;z&quot;
+\POS &quot;y&quot; \ar^{g} &quot;z&quot;
+\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
+\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
+\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
+\end{xy}
+\]
+\[
 \begin{xy}
 &lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
 &lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;,
@@ -1634,6 +1594,18 @@ Source code:
 \]
 
 Source code:
+{{{
+\begin{xy}
+&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
+&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
+\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
+\POS &quot;x&quot; \ar_{f} &quot;z&quot;
+\POS &quot;y&quot; \ar^{g} &quot;z&quot;
+\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
+\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
+\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
+\end{xy}
+}}}
 {{{
 \begin{xy}
 &lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
@@ -2336,7 +2308,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209081951" changecount="57">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209131231" changecount="59">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
 ** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
@@ -2345,7 +2317,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 * Implement the kernel (@@almost done@@)
 ** --Positions-- (@@done@@)
 ** Objects (@@almost done@@)
-*** todo: implements below.
+*** TODO: implements below.
 **** --TeX box-- (@@done@@)
 **** --wrap up box-- (@@done@@)
 **** --Composite object box-- (@@done@@)
@@ -2388,7 +2360,8 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 * Implement features
 ** Arrow and Path feature
 *** --Paths-- (@@done@@)
-*** Arrows
+*** --Arrows-- (@@almost done@@)
+**** TODO: implements @!.
 ** Two-cell feature
 ** Matrix feature
 *** Xy-matrices
@@ -2400,7 +2373,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 <pre>&gt; Xy-pic is a package for typesetting graphs and diagrams using the principle of &quot;logical composition of visual components.&quot;
 Please visit [[Xy-pic's home page|http://www.tug.org/applications/Xy-pic/]]</pre>
 </div>
-<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201109071306" changecount="95">
+<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201209131225" changecount="109">
 <pre>!About XyJax
 XyJax is a almost [[Xy-pic]] compatible package for MathJax.
 This software is under development, so this release is alpha-quality (often buggy).
@@ -2409,28 +2382,26 @@ XyJax enable us to draw diagrams like the following figure, so-called commutativ
 \[
 \begin{xy}
 &lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;,
-&quot;xy&quot;;&quot;x&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle p},
-&quot;xy&quot;;&quot;y&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle q},
-&quot;x&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle f},
-&quot;y&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle g},
-&quot;u&quot;;&quot;xy&quot; **@{--} ?&gt;*@{&gt;},
-&quot;u&quot;;&quot;y&quot; **\crv{&lt;-3em,-2em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.5em/{y},
-&quot;u&quot;;&quot;x&quot; **\crv{&lt;2em,3em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.5em/{x}
+&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
+\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
+\POS &quot;x&quot; \ar_{f} &quot;z&quot;
+\POS &quot;y&quot; \ar^{g} &quot;z&quot;
+\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
+\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
+\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
 \end{xy}
 \]
 This diagram was drawn by the code:
 {{{
 \begin{xy}
 &lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;,
-&quot;xy&quot;;&quot;x&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle p},
-&quot;xy&quot;;&quot;y&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle q},
-&quot;x&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle f},
-&quot;y&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle g},
-&quot;u&quot;;&quot;xy&quot; **@{--} ?&gt;*@{&gt;},
-&quot;u&quot;;&quot;y&quot; **\crv{&lt;-3em,-2em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.5em/{y},
-&quot;u&quot;;&quot;x&quot; **\crv{&lt;2em,3em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.5em/{x}
+&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
+\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
+\POS &quot;x&quot; \ar_{f} &quot;z&quot;
+\POS &quot;y&quot; \ar^{g} &quot;z&quot;
+\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
+\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
+\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
 \end{xy}
 }}}
 
