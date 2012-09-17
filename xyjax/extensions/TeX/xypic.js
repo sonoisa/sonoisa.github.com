@@ -106,14 +106,15 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   
   MathJax.Hub.Insert(TEXDEF, {
     macros: {
-      hole: ['Macro', '{\\bbox[3pt]{}}']
+      //hole: ['Macro', '{\\bbox[3pt]{}}']
+      hole: ['Macro', '{\\style{visibility:hidden}{x}}']
     },
     environment: {
       xy: ['ExtensionEnv', null, 'XYpic']
     }
   });
   
-  // パースエラーを表示できるよう、エラー処理をoverrideする。
+  // override MathJax.InputJax.TeX.formatError function to display parse error.
   var tex_formatError = TEX.formatError;
   TEX.formatError = function (err, math, displaystyle, script) {
     if (err.xyjaxError !== undefined) {
@@ -424,6 +425,56 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }
   });
   
+  // coordinate for xymatrix
+  // <coord> ::= '[' ('"'<prefix>'"')? <number> ',' <number> ']'
+  AST.Coord.DeltaRowColumn = MathJax.Object.Subclass({
+    /**
+     * @param {String} prefix name of the xymatrix
+     * @param {Number} dr rows below
+     * @param {Number} dc columns right
+     */
+    Init: function (prefix, dr, dc) {
+      this.prefix = prefix;
+      this.dr = dr;
+      this.dc = dc;
+    },
+    toString: function () {
+      return '[' + (this.prefix === ''? '' : '"' + this.prefix + '"') + this.dr + "," + this.dc + "]";
+    }
+  });
+  // coordinate for xymatrix
+  // <coord> ::= '[' ('"'<prefix>'"')? ( 'l' | 'r' | 'u' | 'd' )* ']'
+  AST.Coord.Hops = MathJax.Object.Subclass({
+    /**
+     * @param {String} prefix name of the xymatrix
+     * @param {List[String]} hops hops
+     */
+    Init: function (prefix, hops) {
+      this.prefix = prefix;
+      this.hops = hops;
+    },
+    toString: function () {
+      return '[' + (this.prefix === ''? '' : '"' + this.prefix + '"') + this.hops.mkString("") + "]";
+    }
+  });
+  // coordinate for xymatrix
+  // <coord> ::= '[' ('"'<prefix>'"')? ( 'l' | 'r' | 'u' | 'd' )+ <place> ']'
+  AST.Coord.HopsWithPlace = MathJax.Object.Subclass({
+    /**
+     * @param {String} prefix name of the xymatrix
+     * @param {List[String]} hops hops
+     * @param {AST.Pos.Place} place place
+     */
+    Init: function (prefix, hops, place) {
+      this.prefix = prefix;
+      this.hops = hops;
+      this.place = place;
+    },
+    toString: function () {
+      return '[' + (this.prefix === ''? '' : '"' + this.prefix + '"') + this.hops.mkString("") + this.place + "]";
+    }
+  });
+  
   // <vector>
   AST.Vector = MathJax.Object.Subclass({});
   // <vector> ::= '(' <factor> ',' <factor> ')'
@@ -612,17 +663,34 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   // <objectbox>
-  AST.ObjectBox = MathJax.Object.Subclass({});
+  AST.ObjectBox = MathJax.Object.Subclass({
+    dirVariant: function () { return undefined; },
+    dirMain: function () { return undefined; },
+    isDir: function () { return false; },
+    isEmpty: false
+  });
   // <objectbox> ::= '{' <text> '}'
   // <objectbox> ::= <TeX box> '{' <text> '}'
   AST.ObjectBox.Text = AST.ObjectBox.Subclass({
     Init: function (math) {
       this.math = math;
     },
-    dirVariant: function () { return undefined; },
-    dirMain: function () { return undefined; },
-    isDir: function () { return false; },
     toString: function () { return "{" + this.math.toString() + "}"; }
+  });
+  AST.ObjectBox.Empty = AST.ObjectBox.Subclass({
+    isEmpty: true,
+    toString: function () { return "{}"; }
+  });
+  
+  // <objectbox> ::= 'xymatrix' <xymatrix>
+  AST.ObjectBox.Xymatrix = AST.ObjectBox.Subclass({
+    /**
+     * @param {AST.Command.Xymatrix} xymatrix xymatrix
+     */
+    Init: function (xymatrix) {
+      this.xymatrix = xymatrix;
+    },
+    toString: function () { return this.xymatrix.toString(); }
   });
   
   // <objectbox> ::= '\txt' <width> <style> '{' <text> '}'
@@ -942,7 +1010,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       this.options = options;
     },
     toString: function () {
-      return "F" + this.main + this.options.mkString("");
+      return "[F" + this.main + this.options.mkString("") + "]";
     }
   });
   AST.Modifier.Shape.Frame.Radius = MathJax.Object.Subclass({
@@ -1684,6 +1752,245 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   });
   
   
+  // <decor> ::= '\xymatrix' <xymatrix>
+  // <xymatrix> ::= <setup> '{' <rows> '}'
+  AST.Command.Xymatrix = MathJax.Object.Subclass({
+    /**
+     * @param {List[AST.Command.Xymatrix.Setup.*]} setup setup configurations
+     * @param {List[AST.Command.Xymatrix.Row]} rows rows
+     */
+    Init: function (setup, rows) {
+      this.setup = setup;
+      this.rows = rows;
+    },
+    toString: function () {
+      return "\\xymatrix" + this.setup + "{\n" + this.rows.mkString("", "\\\\\n", "") + "\n}";
+    }
+  });
+  // <setup> ::= <switch>*
+  AST.Command.Xymatrix.Setup = MathJax.Object.Subclass({});
+  
+  // <switch> ::= '"' <prefix> '"'
+  AST.Command.Xymatrix.Setup.Prefix = MathJax.Object.Subclass({
+    /**
+     * @param {String} prefix name of the xymatrix
+     */
+    Init: function (prefix) {
+      this.prefix = prefix;
+    },
+    toString: function () {
+      return '"' + this.prefix + '"';
+    }
+  });
+  
+  // <switch> ::= '@' <rcchar> <add op> <dimen>
+  AST.Command.Xymatrix.Setup.ChangeSpacing = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Modifier.AddOp.*} addop sizing operator
+     * @param {String} dimen size
+     */
+    Init: function (addop, dimen) {
+      this.addop = addop;
+      this.dimen = dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.ChangeSpacing.Row = AST.Command.Xymatrix.Setup.ChangeSpacing.Subclass({
+    toString: function () {
+      return "@R" + this.addop + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.ChangeSpacing.Column = AST.Command.Xymatrix.Setup.ChangeSpacing.Subclass({
+    toString: function () {
+      return "@C" + this.addop + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.ChangeSpacing.RowAndColumn = AST.Command.Xymatrix.Setup.ChangeSpacing.Subclass({
+    toString: function () {
+      return "@" + this.addop + this.dimen;
+    }
+  });
+  
+  // <switch> ::= '@' '!' <rcchar> '0'
+  // <switch> ::= '@' '!' <rcchar> '=' <dimen>
+  // <rcchar> ::= 'R' | 'C' | <empty>
+  AST.Command.Xymatrix.Setup.PretendEntrySize = MathJax.Object.Subclass({
+    /**
+     * @param {String} dimen size
+     */
+    Init: function (dimen) {
+      this.dimen = dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.PretendEntrySize.Height = AST.Command.Xymatrix.Setup.PretendEntrySize.Subclass({
+    toString: function () {
+      return "@!R=" + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.PretendEntrySize.Width = AST.Command.Xymatrix.Setup.PretendEntrySize.Subclass({
+    toString: function () {
+      return "@!C=" + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.PretendEntrySize.HeightAndWidth = AST.Command.Xymatrix.Setup.PretendEntrySize.Subclass({
+    toString: function () {
+      return "@!=" + this.dimen;
+    }
+  });
+  
+  // <switch> ::= '@' '!' <rcchar>
+  AST.Command.Xymatrix.Setup.FixGrid = MathJax.Object.Subclass({});
+  AST.Command.Xymatrix.Setup.FixGrid.Row = AST.Command.Xymatrix.Setup.FixGrid.Subclass({
+    toString: function () {
+      return "@!R";
+    }
+  });
+  AST.Command.Xymatrix.Setup.FixGrid.Column = AST.Command.Xymatrix.Setup.FixGrid.Subclass({
+    toString: function () {
+      return "@!C";
+    }
+  });
+  AST.Command.Xymatrix.Setup.FixGrid.RowAndColumn = AST.Command.Xymatrix.Setup.FixGrid.Subclass({
+    toString: function () {
+      return "@!";
+    }
+  });
+  
+  // <switch> ::= '@' ( 'M' | 'W' | 'H' ) <add op> <dimen>
+  // <switch> ::= '@' '1'
+  AST.Command.Xymatrix.Setup.AdjustEntrySize = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Modifier.AddOp.*} addop sizing operator
+     * @param {String} dimen size
+     */
+    Init: function (addop, dimen) {
+      this.addop = addop;
+      this.dimen = dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Margin = AST.Command.Xymatrix.Setup.AdjustEntrySize.Subclass({
+    toString: function () {
+      return "@M" + this.addop + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Width = AST.Command.Xymatrix.Setup.AdjustEntrySize.Subclass({
+    toString: function () {
+      return "@W" + this.addop + this.dimen;
+    }
+  });
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Height = AST.Command.Xymatrix.Setup.AdjustEntrySize.Subclass({
+    toString: function () {
+      return "@H" + this.addop + this.dimen;
+    }
+  });
+  
+  // <switch> ::= '@' 'L' <add op> <dimen>
+  AST.Command.Xymatrix.Setup.AdjustLabelSep = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Modifier.AddOp.*} addop sizing operator
+     * @param {String} dimen size
+     */
+    Init: function (addop, dimen) {
+      this.addop = addop;
+      this.dimen = dimen;
+    },
+    toString: function () {
+      return "@L" + this.addop + this.dimen;
+    }
+  });
+  
+  // <switch> ::= '@' <nonemptyDirection>
+  AST.Command.Xymatrix.Setup.SetOrientation = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Direction} direction the orientation of the row
+     */
+    Init: function (direction) {
+      this.direction = direction;
+    },
+    toString: function () {
+      return "@" + this.direction;
+    }
+  });
+  
+  // <switch> ::= '@' '*' '[' <shape> ']'
+  //          |   '@' '*' <add op> <size>
+  AST.Command.Xymatrix.Setup.AddModifier = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Modifier.*} shape  object shape modifier for all entries
+     */
+    Init: function (modifier) {
+      this.modifier = modifier;
+    },
+    toString: function () {
+      return "@*" + this.modifier;
+    }
+  });
+  
+  // <rows> ::= <row> ( '\\' <row> )*
+  // <row> ::= <entry> ( '&' <entry> )*
+  AST.Command.Xymatrix.Row = MathJax.Object.Subclass({
+    /**
+     * @param {List[AST.Command.Xymatrix.Entry.*]} entries entries in the row
+     */
+    Init: function (entries) {
+      this.entries = entries;
+    },
+    toString: function () {
+      return this.entries.mkString(" & ");
+    }
+  });
+  // <entry> ::= ( '**' '[' <shape> ']' | '**' '{' <modifier>* '}' )* <loose objectbox> <decor>
+  //         |   '*' <object> <pos> <decor>
+  // <loose objectbox> ::= <objectbox>
+  //                   |   /[^\\{}&]+/* ( ( '\' not( '\' | <decor command names> ) ( '{' | '}' | '&' ) | '{' <text> '}' ) /[^\\{}&]+/* )*
+  // <decor command names> ::= 'ar' | 'xymatrix' | 'PATH' | 'afterPATH'
+  //                       |   'save' | 'restore' | 'POS' | 'afterPOS' | 'drop' | 'connect' | 'xyignore'
+  AST.Command.Xymatrix.Entry = MathJax.Object.Subclass({});
+  AST.Command.Xymatrix.Entry.SimpleEntry = AST.Command.Xymatrix.Entry.Subclass({
+    /**
+     * @param {List[AST.Modifier.*]} modifiers object modifiers
+     * @param {AST.ObjectBox.*} objectbox entry objectbox
+     * @param {AST.Decor} decor decoration
+     */
+    Init: function (modifiers, objectbox, decor) {
+      this.modifiers = modifiers;
+      this.objectbox = objectbox;
+      this.decor = decor;
+    },
+    isEmpty: false,
+    toString: function () {
+      return this.modifiers.mkString("**{", "", "}") + " " + this.objectbox + " " + this.decor;
+    }
+  });
+  AST.Command.Xymatrix.Entry.ObjectEntry = AST.Command.Xymatrix.Entry.Subclass({
+    /**
+     * @param {AST.Object} object entry object
+     * @param {AST.Pos.Coord} pos position (ignorable)
+     * @param {AST.Decor} decor decoration
+     */
+    Init: function (object, pos, decor) {
+      this.object = object;
+      this.pos = pos;
+      this.decor = decor;
+    },
+    isEmpty: false,
+    toString: function () {
+      return "*" + this.object + " " + this.pos + " " + this.decor;
+    }
+  });
+  AST.Command.Xymatrix.Entry.EmptyEntry = AST.Command.Xymatrix.Entry.Subclass({
+    /**
+     * @param {AST.Decor} decor decoration
+     */
+    Init: function (decor) {
+      this.decor = decor;
+    },
+    isEmpty: true,
+    toString: function () {
+      return "" + this.decor;
+    }
+  });
+  
+  
   var fun = FP.Parsers.fun;
   var elem = FP.Parsers.elem;
   var felem = function (x) { return fun(FP.Parsers.elem(x)); }
@@ -1696,6 +2003,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
   var rep = function (x) { return FP.Parsers.lazyParser(x)().rep(); }
   var rep1 = function (x) { return FP.Parsers.lazyParser(x)().rep1(); }
   var opt = function (x) { return FP.Parsers.lazyParser(x)().opt(); }
+  var not = function (x) { return FP.Parsers.not(FP.Parsers.lazyParser(x)); }
   var success = FP.Parsers.success;
   var memo = function (parser) {
     return function () {
@@ -1799,11 +2107,14 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }),
     
     // <nonemptyCoord> ::= 'c' | 'p' | 'x' | 'y'
-    //         |   <vector>
-    //         |   '"' <id> '"'
-    //         |   '{' <pos> <decor> '}'
-    //         |   's' <digit>
-    //         |   's' '{' <nonnegative-number> '}'
+    //                 |   <vector>
+    //                 |   '"' <id> '"'
+    //                 |   '{' <pos> <decor> '}'
+    //                 |   's' <digit>
+    //                 |   's' '{' <nonnegative-number> '}'
+    //                 |   '[' ('"'<prefix>'"')? <number> ',' <number> ']'
+    //                 |   '[' ('"'<prefix>'"')? ( 'l' | 'r' | 'u' | 'd' )* ']'
+    //                 |   '[' ('"'<prefix>'"')? ( 'l' | 'r' | 'u' | 'd' )+ <place> ']'
     nonemptyCoord: memo(function () {
       return or(
         lit('c').to(function () { return AST.Coord.C(); }), 
@@ -1818,6 +2129,21 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         }),
         lit('s').andr(flit('{')).and(p.nonnegativeNumber).andl(flit('}')).to(function (n) {
           return AST.Coord.StackPosition(n);
+        }),
+        lit('[').andr(fun(
+          opt(lit('"').andr(p.id).andl(felem('"'))).to(function (id) { return id.getOrElse(""); }) )
+        ).and(p.number).andl(flit(",")).and(p.number).andl(flit("]")).to(function (prc) {
+          return AST.Coord.DeltaRowColumn(prc.head.head, prc.head.tail, prc.tail);
+        }),
+        lit('[').andr(fun(
+          opt(lit('"').andr(p.id).andl(felem('"'))).to(function (id) { return id.getOrElse(""); }) )
+        ).and(fun(rep(regex(/^[lrud]/)))).andl(flit("]")).to(function (ph) {
+          return AST.Coord.Hops(ph.head, ph.tail);
+        }),
+        lit('[').andr(fun(
+          opt(lit('"').andr(p.id).andl(felem('"'))).to(function (id) { return id.getOrElse(""); }) )
+        ).and(fun(rep1(regex(/^[lrud]/)))).and(p.place).andl(flit("]")).to(function (php) {
+          return AST.Coord.DeltaRowColumn(php.head.head, php.head.tail, AST.Pos.Place(php.tail));
         })
       );
     }),
@@ -1995,6 +2321,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     //          | '\object' <object>
     //          | '\composite' '{' <composite_object> '}'
     //          | '\xybox' '{' <pos> <decor> '}'
+    //          | '\xymatrix' <xymatrix>
     //          | <curve>
     //          | <TeX box> '{' <text> '}'
     objectbox: memo(function () {
@@ -2016,6 +2343,9 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         }),
         lit("\\xybox").and(flit("{")).andr(p.posDecor).andl(flit("}")).to(function (pd) {
           return AST.ObjectBox.Xybox(pd);
+        }),
+        lit("\\xymatrix").andr(p.xymatrix).to(function (m) {
+          return AST.ObjectBox.Xymatrix(m);
         }),
         p.txt,
         p.curve,
@@ -2489,12 +2819,13 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }),
     
     // <command> ::= '\ar' ( <arrow_form> )* <path>
+    //           |   '\xymatrix' <xymatrix>
+    //           |   '\PATH' <path>
+    //           |   '\afterPATH' '{' <decor> '}' <path>
     //           |   '\save' <pos>
     //           |   '\restore'
     //           |   '\POS' <pos>
     //           |   '\afterPOS' '{' <decor> '}' <pos>
-    //           |   '\PATH' <path>
-    //           |   '\afterPATH' '{' <decor> '}' <path>
     //           |   '\drop' <object>
     //           |   '\connect' <object>
     //           |   '\relax'
@@ -2503,6 +2834,13 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       return or(
         lit("\\ar").andr(fun(rep(p.arrowForm))).and(p.path).to(function (fsp) {
           return AST.Command.Ar(fsp.head, fsp.tail);
+        }),
+        lit("\\xymatrix").andr(p.xymatrix),
+        lit("\\PATH").andr(p.path).to(function (path) {
+          return AST.Command.Path(path);
+        }),
+        lit("\\afterPATH").andr(flit('{')).andr(p.decor).andl(flit('}')).and(p.path).to(function (dp) {
+          return AST.Command.AfterPath(dp.head, dp.tail);
         }),
         lit("\\save").andr(p.pos).to(function (pos) {
           return AST.Command.Save(pos);
@@ -2515,12 +2853,6 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         }),
         lit("\\afterPOS").andr(flit('{')).andr(p.decor).andl(flit('}')).and(p.pos).to(function (dp) {
           return AST.Command.AfterPos(dp.head, dp.tail);
-        }),
-        lit("\\PATH").andr(p.path).to(function (path) {
-          return AST.Command.Path(path);
-        }),
-        lit("\\afterPATH").andr(flit('{')).andr(p.decor).andl(flit('}')).and(p.path).to(function (dp) {
-          return AST.Command.AfterPath(dp.head, dp.tail);
         }),
         lit("\\drop").andr(p.object).to(function (obj) {
           return AST.Command.Drop(obj);
@@ -2842,6 +3174,184 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
       return seq('=', '"', p.id, '"').opt().to(function (optId) {
         return optId.map(function (id) { return id.head.tail; });
       });
+    }),
+    
+    // <xymatrix> ::= <setup> '{' <rows> '}'
+    xymatrix: memo(function () {
+      return p.setup().andl(flit("{")).and(p.rows).andl(flit("}")).to(function (sr) {
+        return AST.Command.Xymatrix(sr.head, sr.tail);
+      })
+    }),
+    
+    // <setup> ::= <switch>*
+    // <switch> ::= '"' <prefix> '"'
+    //          |   '@' <rcchar> <add op> <dimen>
+    //          |   '@' '!' <rcchar> '0'
+    //          |   '@' '!' <rcchar> '=' <dimen>
+    //          |   '@' '!' <rcchar>
+    //          |   '@' ( 'M' | 'W' | 'H' ) <add op> <dimen>
+    //          |   '@' '1'
+    //          |   '@' 'L' <add op> <dimen>
+    //          |   '@' <nonemptyDirection>
+    //          |   '@' '*' '[' <shape> ']'
+    //          |   '@' '*' <add op> <size>
+    // <rcchar> ::= 'R' | 'C' | <empty>
+    // <mwhlchar> ::= 'M' | 'W' | 'H' | 'L'
+    setup: memo(function () {
+      return rep(fun(or(
+        lit('"').andr(fun(regex(/^[^"]+/))).andl(felem('"')).to(function (p) {
+          return AST.Command.Xymatrix.Setup.Prefix(p);
+        }),
+        lit("@!").andr(fun(regex(/^[RC]/).opt().to(function (c) {
+          return c.getOrElse("");
+        }))).and(fun(
+          or(
+            elem("0").to(function() { return "0em"; }),
+            elem("=").andr(p.dimen)
+          )
+        )).to(function (cd) {
+          var dimen = cd.tail;
+          switch (cd.head) {
+            case "R": return AST.Command.Xymatrix.Setup.PretendEntrySize.Height(dimen);
+            case "C": return AST.Command.Xymatrix.Setup.PretendEntrySize.Width(dimen);
+            default: return AST.Command.Xymatrix.Setup.PretendEntrySize.HeightAndWidth(dimen);
+          }
+        }),
+        lit("@!").andr(fun(
+          or(
+            elem("R").to(function () { return AST.Command.Xymatrix.Setup.FixGrid.Row(); }),
+            elem("C").to(function () { return AST.Command.Xymatrix.Setup.FixGrid.Column(); })
+          ).opt().to(function (rc) {
+            return rc.getOrElse(AST.Command.Xymatrix.Setup.FixGrid.RowAndColumn());
+          })
+        )),
+        lit("@").andr(fun(regex(/^[MWHL]/))).and(p.addOp).and(p.dimen).to(function (cod) {
+          var addop = cod.head.tail;
+          var dimen = cod.tail;
+          switch (cod.head.head) {
+            case "M": return AST.Command.Xymatrix.Setup.AdjustEntrySize.Margin(addop, dimen);
+            case "W": return AST.Command.Xymatrix.Setup.AdjustEntrySize.Width(addop, dimen);
+            case "H": return AST.Command.Xymatrix.Setup.AdjustEntrySize.Height(addop, dimen);
+            case "L": return AST.Command.Xymatrix.Setup.AdjustLabelSep(addop, dimen);
+          }
+        }),
+        lit("@").andr(p.nonemptyDirection).to(function (d) {
+          return AST.Command.Xymatrix.Setup.SetOrientation(d);
+        }),
+        lit("@*[").andr(p.shape).andl(flit("]")).to(function (s) {
+          return AST.Command.Xymatrix.Setup.AddModifier(s);
+        }),
+        lit("@*").andr(p.addOp).and(p.size).to(function (os) {
+          return AST.Command.Xymatrix.Setup.AddModifier(AST.Modifier.AddOp(os.head, os.tail));
+        }),
+        lit("@").andr(fun(regex(/^[RC]/).opt().to(function (c) {
+          return c.getOrElse("");
+        }))).and(p.addOp).and(p.dimen).to(function (cod) {
+          var addop = cod.head.tail;
+          var dimen = cod.tail;
+          switch (cod.head.head) {
+            case "R": return AST.Command.Xymatrix.Setup.ChangeSpacing.Row(addop, dimen);
+            case "C": return AST.Command.Xymatrix.Setup.ChangeSpacing.Column(addop, dimen);
+            default: return AST.Command.Xymatrix.Setup.ChangeSpacing.RowAndColumn(addop, dimen);
+          }
+        }),
+        lit("@1").to(function () {
+          return AST.Command.Xymatrix.Setup.AdjustEntrySize.Margin(AST.Modifier.AddOp.Set(), "1pc");
+        })
+      )));
+    }),
+    
+    // <rows> ::= <row> ( '\\' <row> )*
+    rows: memo(function () {
+      return p.row().and(fun(rep(lit("\\\\").andr(p.row)))).to(function (rrs) {
+        var rows = rrs.tail.prepend(rrs.head);
+        if (!rows.isEmpty) {
+          var lastRow = rows.at(rows.length() - 1);
+          if (lastRow.entries.length() === 1 && lastRow.entries.at(0).isEmpty) {
+            rows = rows.reverse().tail.reverse();
+          }
+        }
+        return rows;
+      })
+    }),
+    
+    // <row> ::= <entry> ( '&' <entry> )*
+    row: memo(function () {
+      return p.entry().and(fun(rep(lit("&").andr(p.entry)))).to(function (ees) {
+        return AST.Command.Xymatrix.Row(ees.tail.prepend(ees.head));
+      })
+    }),
+    
+    // <entry> ::= '*' <object> <pos> <decor>
+    //         |   <entry modifier>* <loose objectbox> <decor>
+    entry: memo(function () {
+      return or(
+        lit("*").andr(p.object).and(p.pos).and(p.decor).to(function (opd) {
+          var obj = opd.head.head;
+          var pos = opd.head.tail;
+          var decor = opd.tail;
+          return AST.Command.Xymatrix.Entry.ObjectEntry(obj, pos, decor);
+        }),
+        p.entryModifier().rep().and(p.looseObjectbox).and(p.decor).to(function (mopd) {
+          var modifiers = mopd.head.head.foldLeft(FP.List.empty, function (tmpMs, ms) {
+            return ms.concat(tmpMs);
+          });
+          var isEmpty = mopd.head.tail.isEmpty;
+          var objbox = mopd.head.tail.object;
+          var decor = mopd.tail;
+          if (isEmpty && modifiers.isEmpty) {
+            return AST.Command.Xymatrix.Entry.EmptyEntry(decor);
+          }
+          return AST.Command.Xymatrix.Entry.SimpleEntry(modifiers, objbox, decor);
+        })
+      );
+    }),
+    
+    // <entry modifier> ::= '**' '[' <shape> ']' | '**' '{' <modifier>* '}'
+    entryModifier: memo(function () {
+      return or(
+        lit("**").andr(flit("[")).andr(p.shape).andl(flit("]")).to(function (s) {
+          return FP.List.empty.append(s);
+        }),
+        lit("**").andr(flit("{")).andr(fun(rep(p.modifier))).andl(flit("}"))
+      );
+    }),
+    
+    // <loose objectbox> ::= <objectbox>
+    //                   |   /[^\\{}&]+/* ( ( '\' not( '\' | <decor command names> ) ( '{' | '}' | '&' ) | '{' <text> '}' ) /[^\\{}&]+/* )*
+    // <decor command names> ::= 'ar' | 'xymatrix' | 'PATH' | 'afterPATH'
+    //                       |   'save' | 'restore' | 'POS' | 'afterPOS' | 'drop' | 'connect' | 'xyignore'
+    looseObjectbox: memo(function () {
+      return or(
+        p.objectbox().to(function (o) { return {
+          isEmpty:false, object:o
+        } }),
+        regex(/^[^\\{}&]+/).opt().to(function (rs) { return rs.getOrElse(""); }).and(fun(
+          rep(
+            or(
+              elem("{").andr(p.text).andl(felem("}")).to(function (t) { return "{" + t + "}"; }),
+              elem("\\").andr(fun(
+                not(regex(/^(\\|ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|xyignore)/))
+              )).andr(fun(
+                regex(/^[{}&]/).opt().to(function (c) { return c.getOrElse(""); })
+              )).to(function (t) {
+                return "\\" + t;
+              })
+            ).and(fun(
+              regex(/^[^\\{}&]+/).opt().to(function (cs) { return cs.getOrElse(""); })
+            )).to(function (tt) {
+              return tt.head + tt.tail;
+            })
+          ).to(function (cs) { return cs.mkString("") })
+        )).to(function (tt) {
+          var text = tt.head + tt.tail;
+          var isEmpty = (text.trim().length === 0);
+          var object = p.toMath("\\hbox{$\\textstyle{" + text + "}$}");
+          return {
+            isEmpty:isEmpty, object:object
+          };
+        })
+      )
     })
   })();
   
@@ -2885,7 +3395,8 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
      */
     XY: function(begin) {
       try {
-        var input = FP.StringReader(this.string, this.i);
+        var parseContext = { lastNoSuccess: undefined };
+        var input = FP.StringReader(this.string, this.i, parseContext);
         var result = FP.Parsers.parse(p.xy(), input);
         this.i = result.next.offset;
       } catch (e) {
@@ -2899,7 +3410,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           this.Push(MML.merror("Unsupported Browser. Please open with Firefox/Safari/Chrome/Opera"));
         }
       } else {
-        throw xypic.ParseError(result);
+        throw xypic.ParseError(parseContext.lastNoSuccess);
       }
       
       return begin;
@@ -2957,6 +3468,19 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   var XLINKNS = "http://www.w3.org/1999/xlink";
   var VMLNS = "urn:schemas-microsoft-com:vml";
   var vmlns = "mjxvml";
+  
+  // override MathJax.Hub.formatError function to display runtime error.
+  var hub_formatError = HUB.formatError;
+  HUB.formatError = function (script, err) {
+    if (err.xyjaxError !== undefined) {
+      var origMessage = HUB.config.errorSettings.message;
+      HUB.config.errorSettings.message = "[" + err.message + "]";
+      hub_formatError.apply(HUB, [script, err]);
+      HUB.config.errorSettings.message = origMessage;
+    } else {
+      hub_formatError.apply(HUB, [script, err]);
+    }
+  }
 
   var em2px = function (n) { return Math.round(n * HTMLCSS.em * 100) / 100; }
   
@@ -3694,24 +4218,86 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     grow: function (xMargin, yMargin) {
       return this.toRect({
-        l:Math.max(0, this.l+xMargin),
-        r:Math.max(0, this.r+xMargin),
-        u:Math.max(0, this.u+yMargin),
-        d:Math.max(0, this.d+yMargin)
+        l:Math.max(0, this.l + xMargin),
+        r:Math.max(0, this.r + xMargin),
+        u:Math.max(0, this.u + yMargin),
+        d:Math.max(0, this.d + yMargin)
       });
     },
     toSize: function (width, height) {
-      return this.toRect({ l:width / 2, r:width / 2, u:height / 2, d:height / 2 });
+      var u, d, r, l;
+      var ow = this.l + this.r;
+      var oh = this.u + this.d;
+      if (ow === 0) {
+        l = width / 2;
+        r = width / 2;
+      } else {
+        l = width * this.l / ow;
+        r = width * this.r / ow;
+      }
+      if (oh === 0) {
+        u = height / 2;
+        d = height / 2;
+      } else {
+        u = height * this.u / oh;
+        d = height * this.d / oh;
+      }
+      return this.toRect({ l:l, r:r, u:u, d:d });
     },
     growTo: function (width, height) {
-      var w = Math.max(this.l+this.r, width);
-      var h = Math.max(this.u+this.d, height);
-      return this.toRect({ l:w / 2, r:w / 2, u:h / 2, d:h / 2 });
+      var u = this.u;
+      var d = this.d;
+      var r = this.r;
+      var l = this.l;
+      var ow = l + r;
+      var oh = u + d;
+      if (width > ow) {
+        if (ow === 0) {
+          l = width / 2;
+          r = width / 2;
+        } else {
+          l = width * this.l / ow;
+          r = width * this.r / ow;
+        }
+      }
+      if (height > oh) {
+        if (oh === 0) {
+          u = height / 2;
+          d = height / 2;
+        } else {
+          u = height * this.u / oh;
+          d = height * this.d / oh;
+        }
+      }
+      return this.toRect({ l:l, r:r, u:u, d:d });
     },
     shrinkTo: function (width, height) {
-      var w = Math.min(this.l+this.r, width);
-      var h = Math.min(this.u+this.d, height);
-      return this.toRect({ l:w / 2, r:w / 2, u:h / 2, d:h / 2 });
+      var u = this.u;
+      var d = this.d;
+      var r = this.r;
+      var l = this.l;
+      var ow = l + r;
+      var oh = u + d;
+      if (width < ow) {
+        if (ow === 0) {
+          l = width / 2;
+          r = width / 2;
+        } else {
+          l = width * this.l / ow;
+          r = width * this.r / ow;
+        }
+      }
+      if (height < oh) {
+        if (oh === 0) {
+          u = height / 2;
+          d = height / 2;
+        } else {
+          u = height * this.u / oh;
+          d = height * this.d / oh;
+        }
+      }
+      
+      return this.toRect({ l:l, r:r, u:u, d:d });
     },
     move: function (x, y) {
       return xypic.Frame.Rect(x, y, { l:this.l, r:this.r, u:this.u, d:this.d });
@@ -3819,12 +4405,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var xm0 = xm;
         var ym0 = eps * (ym - cy) + cy;
         
-        var dxp = xp0 - x;
-        var dyp = yp0 - y;
-        var dxm = xm0 - x;
-        var dym = ym0 - y;
+        var sign = xypic.Util.sign;
         
-        if (dxp * dxp + dyp * dyp < dxm * dxm + dym * dym) {
+        if (sign(xp0 - cx) === sign(x - cx) && sign(yp0 - cy) === sign(y - cy)) {
           return xypic.Frame.Point(xp0, yp0);
         } else {
           return xypic.Frame.Point(xm0, ym0);
@@ -3892,7 +4475,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         var dxm = xm0 - x;
         var dym = ym0 - y;
         
-        if (dxp * dxp + dyp * dyp < dxm * dxm + dym * dym) {
+        if (sign(xp0 - cx) === sign(x - cx) && sign(yp0 - cy) === sign(y - cy)) {
           return xypic.Frame.Point(xm0, ym0);
         } else {
           return xypic.Frame.Point(xp0, yp0);
@@ -3900,23 +4483,88 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       }
     },
     grow: function (xMargin, yMargin) {
-      return xypic.Frame.Ellipse(this.x, this.y, Math.max(0, this.l + xMargin), Math.max(0, this.r + xMargin), Math.max(0, this.u + yMargin), Math.max(0, this.d + yMargin));
+      return xypic.Frame.Ellipse(
+        this.x, this.y, 
+        Math.max(0, this.l + xMargin), 
+        Math.max(0, this.r + xMargin), 
+        Math.max(0, this.u + yMargin), 
+        Math.max(0, this.d + yMargin));
     },
     toSize: function (width, height) {
-      return xypic.Frame.Ellipse(this.x, this.y, width / 2, width / 2, height / 2, height / 2);
+      var u, d, r, l;
+      var ow = this.l + this.r;
+      var oh = this.u + this.d;
+      if (ow === 0) {
+        l = width / 2;
+        r = width / 2;
+      } else {
+        l = width * this.l / ow;
+        r = width * this.r / ow;
+      }
+      if (oh === 0) {
+        u = height / 2;
+        d = height / 2;
+      } else {
+        u = height * this.u / oh;
+        d = height * this.d / oh;
+      }
+      
+      return xypic.Frame.Ellipse(this.x, this.y, l, r, u, d);
     },
     growTo: function (width, height) {
-      var l = Math.max(this.l, width / 2);
-      var r = Math.max(this.r, width / 2);
-      var u = Math.max(this.u, height / 2);
-      var d = Math.max(this.d, height / 2);
+      var u = this.u;
+      var d = this.d;
+      var r = this.r;
+      var l = this.l;
+      var ow = l + r;
+      var oh = u + d;
+      if (width > ow) {
+        if (ow === 0) {
+          l = width / 2;
+          r = width / 2;
+        } else {
+          l = width * this.l / ow;
+          r = width * this.r / ow;
+        }
+      }
+      if (height > oh) {
+        if (oh === 0) {
+          u = height / 2;
+          d = height / 2;
+        } else {
+          u = height * this.u / oh;
+          d = height * this.d / oh;
+        }
+      }
+      
       return xypic.Frame.Ellipse(this.x, this.y, l, r, u, d);
     },
     shrinkTo: function (width, height) {
-      var l = Math.min(this.l, width / 2);
-      var r = Math.min(this.r, width / 2);
-      var u = Math.min(this.u, height / 2);
-      var d = Math.min(this.d, height / 2);
+      var u = this.u;
+      var d = this.d;
+      var r = this.r;
+      var l = this.l;
+      var ow = l + r;
+      var oh = u + d;
+      if (width < ow) {
+        if (ow === 0) {
+          l = width / 2;
+          r = width / 2;
+        } else {
+          l = width * this.l / ow;
+          r = width * this.r / ow;
+        }
+      }
+      if (height < oh) {
+        if (oh === 0) {
+          u = height / 2;
+          d = height / 2;
+        } else {
+          u = height * this.u / oh;
+          d = height * this.d / oh;
+        }
+      }
+      
       return xypic.Frame.Ellipse(this.x, this.y, l, r, u, d);
     },
     move: function (x, y) {
@@ -9328,6 +9976,10 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       this.p = this.c = xypic.Env.originPosition;
       this.shouldCapturePos = false;
       this.capturedPositions = FP.List.empty;
+      this.objectmargin = AST.xypic.objectmargin;
+      this.objectheight = AST.xypic.objectheight;
+      this.objectwidth = AST.xypic.objectwidth;
+      this.labelmargin = AST.xypic.labelmargin;
     },
     duplicate: function () {
       var newEnv = xypic.Env();
@@ -9429,10 +10081,14 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     stackAt: function (number) {
       return this.stack.at(number);
     },
-    lookupPos: function (id) {
+    lookupPos: function (id, errorMessage) {
       var pos = this.savedPosition[id];
       if (pos === undefined) {
-        throw xypic.ExecutionError('id "' + id + '" not found');
+        if (errorMessage !== undefined) {
+          throw xypic.ExecutionError(errorMessage);
+        } else {
+          throw xypic.ExecutionError('<pos> "' + id + '" not defined.');
+        }
       } else {
         return pos;
       }
@@ -10006,6 +10662,12 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
+  AST.ObjectBox.Xymatrix.Augment({
+    toDropShape: function (context) {
+      return this.xymatrix.toShape(context);
+    }
+  });
+  
   AST.ObjectBox.Text.Augment({
     toDropShape: function (context) {
       var textShape = xypic.Shape.TextShape(context.env.c, this.math, svgForTestLayout);
@@ -10014,6 +10676,15 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       return textShape;
     }
   });
+  
+  AST.ObjectBox.Empty.Augment({
+    toDropShape: function (context) {
+      var env = context.env;
+      env.c = xypic.Frame.Point(env.c.x, env.c.y);
+      return xypic.Shape.none;
+    }
+  });
+
   
   AST.ObjectBox.Txt.Augment({
     toDropShape: function (context) {
@@ -10957,6 +11628,98 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     }
   });
   
+  AST.Coord.DeltaRowColumn.Augment({
+    position: function (context) {
+      var env = context.env;
+      var row = env.xymatrixRow;
+      var col = env.xymatrixCol;
+      if (row === undefined || col === undefined) {
+        throw xypic.ExecutionError("xymatrix rows and columns not found for " + this.toSring());
+      }
+      var id = this.prefix + (row + this.dr) + "," + (col + this.dc);
+      return context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
+    }
+  });
+  
+  AST.Coord.Hops.Augment({
+    position: function (context) {
+      var env = context.env;
+      var row = env.xymatrixRow;
+      var col = env.xymatrixCol;
+      if (row === undefined || col === undefined) {
+        throw xypic.ExecutionError("xymatrix rows and columns not found for " + this.toSring());
+      }
+      this.hops.foreach(function (hop) {
+        switch (hop) {
+          case 'u':
+            row -= 1;
+            break;
+          case 'd':
+            row += 1;
+            break;
+          case 'l':
+            col -= 1;
+            break;
+          case 'r':
+            col += 1;
+            break;
+        }
+      });
+      var id = this.prefix + row + "," + col;
+      return context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
+    }
+  });
+  
+  AST.Coord.HopsWithPlace.Augment({
+    position: function (context) {
+      var env = context.env;
+      var row = env.xymatrixRow;
+      var col = env.xymatrixCol;
+      if (row === undefined || col === undefined) {
+        throw xypic.ExecutionError("xymatrix rows and columns not found for " + this.toSring());
+      }
+      this.hops.foreach(function (hop) {
+        switch (hop) {
+          case 'u':
+            row -= 1;
+            break;
+          case 'd':
+            row += 1;
+            break;
+          case 'l':
+            col -= 1;
+            break;
+          case 'r':
+            col += 1;
+            break;
+        }
+      });
+      var id = this.prefix + row + "," + col;
+      var pos = context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
+      var c = env.c;
+      
+      var tmpEnv = env.duplicate();
+      tmpEnv.p = env.c;
+      tmpEnv.c = pos;
+      var dx = tmpEnv.c.x - tmpEnv.p.x;
+      var dy = tmpEnv.c.y - tmpEnv.p.y;
+      var angle;
+      if (dx === 0 && dy === 0) {
+        angle = 0;
+      } else {
+        angle = Math.atan2(dy, dx);
+      }
+      tmpEnv.angle = angle;
+      var s = tmpEnv.p.edgePoint(tmpEnv.c.x, tmpEnv.c.y);
+      var e = tmpEnv.c.edgePoint(tmpEnv.p.x, tmpEnv.p.y);
+      tmpEnv.lastCurve = xypic.LastCurve.Line(s, e, tmpEnv.p, tmpEnv.c, undefined);
+      var tmpContext = xypic.DrawingContext(xypic.Shape.none, tmpEnv);
+      var t = this.place.toShape(tmpContext);
+      
+      return tmpEnv.lastCurve.position(t);
+    }
+  });
+  
   AST.Vector.InCurBase.Augment({
     xy: function (context) {
       return context.env.absVector(this.x, this.y);
@@ -11413,7 +12176,7 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
     },
     modifyShape: function (context, objectShape, restModifiers) {
       context.env.angle = this.direction.angle(context);
-      return this.proceedModifyShape(context, objectShape, restModifiers);;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   
@@ -11424,37 +12187,49 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var c = context.env.c;
       context.env.c = this.op.apply(this.size, c, context);
       context.appendShapeToFront(xypic.Shape.InvisibleBoxShape(context.env.c));
-      return this.proceedModifyShape(context, objectShape, restModifiers);;
+      return this.proceedModifyShape(context, objectShape, restModifiers);
     }
   });
   AST.Modifier.AddOp.Grow.Augment({
     apply: function (size, c, context) {
+      var env = context.env;
       var margin = (size.isDefault?
-        { x:2 * AST.xypic.objectmargin, y:2 * AST.xypic.objectmargin }:
+        { x:2 * env.objectmargin, y:2 * env.objectmargin }:
         size.vector.xy(context));
       var xMargin = Math.abs(margin.x / 2);
       var yMargin = Math.abs(margin.y / 2);
       return c.grow(xMargin, yMargin);
+    },
+    applyToDimen: function (lhsEm, rhsEm) {
+      return lhsEm + rhsEm;
     }
   });
   AST.Modifier.AddOp.Shrink.Augment({
     apply: function (size, c, context) {
+      var env = context.env;
       var margin = (size.isDefault?
-        { x:2 * AST.xypic.objectmargin, y:2 * AST.xypic.objectmargin }:
+        { x:2 * env.objectmargin, y:2 * env.objectmargin }:
         size.vector.xy(context));
       var xMargin = -Math.abs(margin.x / 2);
       var yMargin = -Math.abs(margin.y / 2);
       return c.grow(xMargin, yMargin);
+    },
+    applyToDimen: function (lhsEm, rhsEm) {
+      return lhsEm - rhsEm;
     }
   });
   AST.Modifier.AddOp.Set.Augment({
     apply: function (size, c, context) {
+      var env = context.env;
       var margin = (size.isDefault?
-        { x:AST.xypic.objectwidth, y:AST.xypic.objectheight }:
+        { x:env.objectwidth, y:env.objectheight }:
         size.vector.xy(context));
       var width = Math.abs(margin.x);
       var height = Math.abs(margin.y);
       return c.toSize(width, height);
+    },
+    applyToDimen: function (lhsEm, rhsEm) {
+      return rhsEm;
     }
   });
   AST.Modifier.AddOp.GrowTo.Augment({
@@ -11464,6 +12239,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var width = Math.abs(margin.x);
       var height = Math.abs(margin.y);
       return c.growTo(width, height);
+    },
+    applyToDimen: function (lhsEm, rhsEm) {
+      return Math.max(Math.max(lhsEm, rhsEm), 0);
     }
   });
   AST.Modifier.AddOp.ShrinkTo.Augment({
@@ -11473,6 +12251,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var width = Math.abs(margin.x);
       var height = Math.abs(margin.y);
       return c.shrinkTo(width, height);
+    },
+    applyToDimen: function (lhsEm, rhsEm) {
+      return Math.max(Math.min(lhsEm, rhsEm), 0);
     }
   });
   
@@ -11516,7 +12297,6 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   
   AST.Direction.Compound.Augment({
     angle: function (context) {
-      var env = context.env;
       var angle = this.dir.angle(context);
       this.rots.foreach(function (rot) { angle = rot.rotate(angle, context); });
       return angle;
@@ -12376,16 +13156,16 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       var p = env.p;
       var c = env.c;
       var t = this.anchor.toShape(context);
-      var labelmargin = this.labelmargin;
+      var labelmargin = this.getLabelMargin(context);
       if (labelmargin !== 0) {
         var lastCurve = env.lastCurve;
+        var angle;
         if (!lastCurve.isNone) {
-          var angle = lastCurve.angle(t) + Math.PI/2;
-          env.c = env.c.move(env.c.x + labelmargin * Math.cos(angle), env.c.y + labelmargin * Math.sin(angle));
+          angle = lastCurve.angle(t) + Math.PI/2;
         } else {
-          var angle = Math.atan2(c.y - p.y, c.x - p.x) + Math.PI/2;
-          env.c = env.c.move(env.c.x + labelmargin * Math.cos(angle), env.c.y + labelmargin * Math.sin(angle));
+          angle = Math.atan2(c.y - p.y, c.x - p.x) + Math.PI/2;
         }
+        env.c = env.c.move(env.c.x + labelmargin * Math.cos(angle), env.c.y + labelmargin * Math.sin(angle));
       }
       var lastCurve = env.lastCurve;
       this.it.toDropShape(context);
@@ -12399,19 +13179,491 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   });
   
   AST.Command.Path.Label.Above.Augment({
-    labelmargin: AST.xypic.labelmargin,
+    getLabelMargin: function (context) {
+      return context.env.labelmargin;
+    },
     shouldSliceHole: false
   });
   
   AST.Command.Path.Label.Below.Augment({
-    labelmargin: -AST.xypic.labelmargin,
+    getLabelMargin: function (context) {
+      return -context.env.labelmargin;
+    },
     shouldSliceHole: false
   });
   
   AST.Command.Path.Label.At.Augment({
-    labelmargin: 0,
+    getLabelMargin: function (context) {
+      return 0;
+    },
     shouldSliceHole: true
   });
+  
+  AST.Command.Xymatrix.Augment({
+    toShape: function (context) {
+      var origEnv = context.env;
+      if (origEnv.c === undefined) {
+        return xypic.Shape.none;
+      }
+      
+      var subEnv = origEnv.duplicate();
+      var subcontext = xypic.DrawingContext(xypic.Shape.none, subEnv);
+      subEnv.xymatrixPrefix = "";
+      subEnv.xymatrixRowSepEm = HTMLCSS.length2em("2pc");
+      subEnv.xymatrixColSepEm = HTMLCSS.length2em("2pc");
+      subEnv.xymatrixPretendEntryHeight = FP.Option.empty;
+      subEnv.xymatrixPretendEntryWidth = FP.Option.empty;
+      subEnv.xymatrixFixedRow = false;
+      subEnv.xymatrixFixedCol = false;
+      subEnv.xymatrixOrientationAngle = 0;
+      subEnv.xymatrixEntryModifiers = FP.List.empty;
+      
+      this.setup.foreach(function (sw) { sw.toShape(subcontext); });
+      
+      var orientation = subEnv.xymatrixOrientationAngle;
+      
+      var rowCount;
+      var columnCount = 0;
+      var rownum = 0, colnum;
+      var matrix = xypic.Xymatrix(
+        this.rows.map(function (row) {
+          rownum += 1;
+          colnum = 0;
+          var rowModel = xypic.Xymatrix.Row(
+            row.entries.map(function (entry) {
+              colnum += 1;
+              var localEnv = subEnv.duplicate();
+              localEnv.origin = {x:0, y:0};
+              localEnv.p = localEnv.c = xypic.Env.originPosition;
+              localEnv.angle = 0;
+              localEnv.lastCurve = xypic.LastCurve.none;
+              localEnv.xymatrixRow = rownum; // = \the\Row
+              localEnv.xymatrixCol = colnum; // = \the\Col
+              var localContext = xypic.DrawingContext(xypic.Shape.none, localEnv);
+              var shape = entry.toShape(localContext);
+              var c = localEnv.c;
+              var l, r, u, d;
+              if (subEnv.xymatrixPretendEntryHeight.isDefined) {
+                var h = subEnv.xymatrixPretendEntryHeight.get;
+                u = h / 2;
+                d = h / 2;
+              } else {
+                u = c.u;
+                d = c.d;
+              }
+              if (subEnv.xymatrixPretendEntryWidth.isDefined) {
+                var w = subEnv.xymatrixPretendEntryWidth.get;
+                l = w / 2;
+                r = w / 2;
+              } else {
+                l = c.l;
+                r = c.r;
+              }
+              var frame = xypic.Frame.Rect(0, 0, { l:l, r:r, u:u, d:d });
+              return xypic.Xymatrix.Entry(localEnv.c, shape, entry.decor, frame);
+            }),
+            orientation
+          );
+          columnCount = Math.max(columnCount, colnum);
+          return rowModel;
+        }),
+        orientation
+      );
+      rowCount = rownum;
+      
+      if (rowCount === 0) {
+        return xypic.Shape.none;
+      }
+      
+      var colnum;
+      matrix.rows.foreach(function (row) {
+        colnum = 0;
+        row.entries.foreach (function (entry) {
+          colnum += 1;
+          var column = matrix.getColumn(colnum);
+          column.addEntry(entry);
+        });
+      });
+      
+      /*
+      console.log(matrix.toString());
+      
+      var rownum = 0;
+      matrix.rows.foreach(function (row) {
+        rownum += 1;
+        console.log("row[" + rownum + "] #" + row.entries.length() + " u:" + row.getU() + ", d:" + row.getD());
+      })
+      var colnum = 0;
+      matrix.columns.foreach(function (col) {
+        colnum += 1;
+        console.log("column[" + colnum + "] #" + col.entries.length() + " l:" + col.getL() + ", r:" + col.getR());
+      })
+      */
+      
+      var colsep = subEnv.xymatrixColSepEm;
+      var xs = [];
+      var x = origEnv.c.x;
+      xs.push(x);
+      if (subEnv.xymatrixFixedCol) {
+        var maxL = 0;
+        var maxR = 0;
+        matrix.columns.foreach(function (col) {
+          maxL = Math.max(maxL, col.getL());
+          maxR = Math.max(maxR, col.getR());
+        });
+        matrix.columns.tail.foreach(function (col) {
+          x = x + maxR + colsep + maxL;
+          xs.push(x);
+        });
+        l = maxL;
+        r = xs[xs.length - 1] + maxR;
+      } else {
+        var prevCol = matrix.columns.head;
+        matrix.columns.tail.foreach(function (col) {
+          x = x + prevCol.getR() + colsep + col.getL();
+          xs.push(x);
+          prevCol = col;
+        });
+        l = matrix.columns.head.getL();
+        r = x + matrix.columns.at(columnCount - 1).getR() - xs[0];
+      }
+      
+      var rowsep = subEnv.xymatrixRowSepEm;
+      var ys = [];
+      var y = origEnv.c.y;
+      ys.push(y);
+      if (subEnv.xymatrixFixedRow) {
+        var maxU = 0;
+        var maxD = 0;
+        matrix.rows.foreach(function (row) {
+          maxU = Math.max(maxU, row.getU());
+          maxD = Math.max(maxD, row.getD());
+        });
+        matrix.rows.tail.foreach(function (row) {
+          y = y - (maxD + rowsep + maxU);
+          ys.push(y);
+        });
+        u = maxU;
+        d = ys[0] - ys[ys.length - 1] + maxD;
+      } else {
+        var prevRow = matrix.rows.head;
+        matrix.rows.tail.foreach(function (row) {
+          y = y - (prevRow.getD() + rowsep + row.getU());
+          ys.push(y);
+          prevRow = row;
+        });
+        u = matrix.rows.head.getU();
+        d = ys[0] - y + matrix.rows.at(rowCount - 1).getD();
+      }
+      origEnv.c = xypic.Frame.Rect(origEnv.c.x, origEnv.c.y, { l:l, r:r, u:u, d:d });
+      
+      var prefix = subEnv.xymatrixPrefix;
+      var cos = Math.cos(orientation);
+      var sin = Math.sin(orientation);
+      var rowIndex = 0;
+      matrix.rows.foreach(function (row) {
+        colIndex = 0;
+        row.entries.foreach (function (entry) {
+          var x0 = xs[colIndex];
+          var y0 = ys[rowIndex];
+          var x = x0 * cos - y0 * sin;
+          var y = x0 * sin + y0 * cos;
+          var colnum = colIndex + 1;
+          var rownum = rowIndex + 1;
+          var pos = xypic.Saving.Position(entry.c.move(x, y));
+          subEnv.savePos("" + rownum + "," + colnum, pos);
+          subEnv.savePos(prefix + rownum + "," + colnum, pos);
+          colIndex += 1;
+        });
+        rowIndex += 1;
+      });
+      
+      subcontext = xypic.DrawingContext(xypic.Shape.none, subEnv);
+      var rowIndex = 0;
+      matrix.rows.foreach(function (row) {
+        colIndex = 0;
+        row.entries.foreach (function (entry) {
+          var x0 = xs[colIndex];
+          var y0 = ys[rowIndex];
+          var x = x0 * cos - y0 * sin;
+          var y = x0 * sin + y0 * cos;
+          var colnum = colIndex + 1;
+          var rownum = rowIndex + 1;
+          var objectShape = xypic.Shape.TranslateShape(x, y, entry.objectShape);
+          subcontext.appendShapeToFront(objectShape);
+          // draw decor
+          subEnv.c = entry.c.move(x, y);
+          subEnv.xymatrixRow = rownum; // = \the\Row
+          subEnv.xymatrixCol = colnum; // = \the\Col
+          entry.decor.toShape(subcontext);
+          colIndex += 1;
+        });
+        rowIndex += 1;
+      });
+      var matrixShape = subcontext.shape;
+      context.appendShapeToFront(matrixShape);
+      origEnv.savedPosition = subEnv.savedPosition;
+      
+      return matrixShape;
+    }
+  });
+  
+  // xymatrix data models
+  xypic.Xymatrix = MathJax.Object.Subclass({
+    Init: function (rows, orientation) {
+      this.rows = rows;
+      this.columns = FP.List.empty;
+      this.orientation = orientation;
+    },
+    getColumn: function (colnum /* >= 1 */) {
+      if (this.columns.length() >= colnum) {
+        return this.columns.at(colnum - 1);
+      } else {
+        var column = xypic.Xymatrix.Column(this.orientation);
+        this.columns = this.columns.append(column);
+        return column;
+      }
+    },
+    toString: function () {
+      return "Xymatrix{\n" + this.rows.mkString("\\\\\n") + "\n}";
+    }
+  });
+  xypic.Xymatrix.Row = MathJax.Object.Subclass({
+    Init: function (entries, orientation) {
+      this.entries = entries;
+      this.orientation = orientation;
+      memoize(this, "getU");
+      memoize(this, "getD");
+    },
+    getU: function () {
+      var orientation = this.orientation;
+      var maxU = 0;
+      this.entries.foreach(function (e) { maxU = Math.max(maxU, e.getU(orientation)); })
+      return maxU;
+    },
+    getD: function () {
+      var orientation = this.orientation;
+      var maxD = 0;
+      this.entries.foreach(function (e) { maxD = Math.max(maxD, e.getD(orientation)); })
+      return maxD;
+    },
+    toString: function () {
+      return this.entries.mkString(" & ");
+    }
+  });
+  xypic.Xymatrix.Column = MathJax.Object.Subclass({
+    Init: function (orientation) {
+      this.entries = FP.List.empty;
+      this.orientation = orientation;
+      memoize(this, "getL");
+      memoize(this, "getR");
+    },
+    addEntry: function (entry) {
+      this.entries = this.entries.append(entry);
+      this.getL.reset;
+      this.getR.reset;
+    },
+    getL: function () {
+      var orientation = this.orientation;
+      var maxL = 0;
+      this.entries.foreach(function (e) { maxL = Math.max(maxL, e.getL(orientation)); })
+      return maxL;
+    },
+    getR: function () {
+      var orientation = this.orientation;
+      var maxR = 0;
+      this.entries.foreach(function (e) { maxR = Math.max(maxR, e.getR(orientation)); })
+      return maxR;
+    },
+    toString: function () {
+      return this.entries.mkString(" \\\\ ");
+    }
+  });
+  xypic.Xymatrix.Entry = MathJax.Object.Subclass({
+    Init: function (c, objectShape, decor, frame) {
+      this.c = c;
+      this.objectShape = objectShape;
+      this.decor = decor;
+      this.frame = frame;
+    },
+    getDistanceToEdgePoint: function (frame, angle) {
+      var edgePoint = frame.edgePoint(frame.x + Math.cos(angle), frame.y + Math.sin(angle));
+      var dx = edgePoint.x - frame.x;
+      var dy = edgePoint.y - frame.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    },
+    getU: function (orientation) {
+      if (orientation === 0) {
+        return this.frame.u;
+      }
+      return this.getDistanceToEdgePoint(this.frame, orientation + Math.PI / 2);
+    },
+    getD: function (orientation) {
+      if (orientation === 0) {
+        return this.frame.d;
+      }
+      return this.getDistanceToEdgePoint(this.frame, orientation - Math.PI / 2);
+    },
+    getL: function (orientation) {
+      if (orientation === 0) {
+        return this.frame.l;
+      }
+      return this.getDistanceToEdgePoint(this.frame, orientation + Math.PI);
+    },
+    getR: function (orientation) {
+      if (orientation === 0) {
+        return this.frame.r;
+      }
+      return this.getDistanceToEdgePoint(this.frame, orientation);
+    },
+    toString: function () {
+      return this.objectShape.toString() + " " + this.decor;
+    }
+  });
+  
+  
+  AST.Command.Xymatrix.Setup.Prefix.Augment({
+    toShape: function (context) {
+      context.env.xymatrixPrefix = this.prefix;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.ChangeSpacing.Row.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.xymatrixRowSepEm = this.addop.applyToDimen(env.xymatrixRowSepEm, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.ChangeSpacing.Column.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.xymatrixColSepEm = this.addop.applyToDimen(env.xymatrixColSepEm, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.ChangeSpacing.RowAndColumn.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      var sepEm = this.addop.applyToDimen(env.xymatrixRowSepEm, HTMLCSS.length2em(this.dimen));
+      env.xymatrixRowSepEm = sepEm;
+      env.xymatrixColSepEm = sepEm;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.PretendEntrySize.Height.Augment({
+    toShape: function (context) {
+      context.env.xymatrixPretendEntryHeight = FP.Option.Some(HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.PretendEntrySize.Width.Augment({
+    toShape: function (context) {
+      context.env.xymatrixPretendEntryWidth = FP.Option.Some(HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.PretendEntrySize.HeightAndWidth.Augment({
+    toShape: function (context) {
+      var len = FP.Option.Some(HTMLCSS.length2em(this.dimen));
+      context.env.xymatrixPretendEntryHeight = len;
+      context.env.xymatrixPretendEntryWidth = len;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.FixGrid.Row.Augment({
+    toShape: function (context) {
+      context.env.xymatrixFixedRow = true;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.FixGrid.Column.Augment({
+    toShape: function (context) {
+      context.env.xymatrixFixedCol = true;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.FixGrid.RowAndColumn.Augment({
+    toShape: function (context) {
+      context.env.xymatrixFixedRow = true;
+      context.env.xymatrixFixedCol = true;
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Margin.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.objectmargin = this.addop.applyToDimen(env.objectmargin, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Width.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.objectwidth = this.addop.applyToDimen(env.objectwidth, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.AdjustEntrySize.Height.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.objectheight = this.addop.applyToDimen(env.objectheight, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.AdjustLabelSep.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.labelmargin = this.addop.applyToDimen(env.labelmargin, HTMLCSS.length2em(this.dimen));
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.SetOrientation.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.xymatrixOrientationAngle = this.direction.angle(context);
+    }
+  });
+  
+  AST.Command.Xymatrix.Setup.AddModifier.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      env.xymatrixEntryModifiers = env.xymatrixEntryModifiers.prepend(this.modifier);
+    }
+  });
+  
+  AST.Command.Xymatrix.Entry.SimpleEntry.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      var defaultWidth = "" + (env.objectmargin + env.objectwidth) + "em";
+      var defaultHeight = "" + (env.objectmargin + env.objectheight) + "em";
+      var defaultSizeModifier = AST.Modifier.AddOp(AST.Modifier.AddOp.GrowTo(), AST.Modifier.AddOp.VactorSize(AST.Vector.Abs(
+        defaultWidth, defaultHeight
+      )));
+      var modifiers = this.modifiers.concat(env.xymatrixEntryModifiers).prepend(defaultSizeModifier);
+      return AST.Object(modifiers, this.objectbox).toDropShape(context);
+    }
+  });
+  
+  AST.Command.Xymatrix.Entry.EmptyEntry.Augment({
+    toShape: function (context) {
+      var env = context.env;
+      var defaultWidth = "" + (env.objectmargin + env.objectwidth) + "em";
+      var defaultHeight = "" + (env.objectmargin + env.objectheight) + "em";
+      var defaultSizeModifier = AST.Modifier.AddOp(AST.Modifier.AddOp.GrowTo(), AST.Modifier.AddOp.VactorSize(AST.Vector.Abs(
+        defaultWidth, defaultHeight
+      )));
+      var modifiers = env.xymatrixEntryModifiers.prepend(defaultSizeModifier);
+      return AST.Object(modifiers, AST.ObjectBox.Empty()).toDropShape(context);
+    }
+  });
+  
+  AST.Command.Xymatrix.Entry.ObjectEntry.Augment({
+    toShape: function (context) {
+      return this.object.toDropShape(context);
+    }
+  });
+  
   
   MathJax.Hub.Startup.signal.Post("HTML-CSS Xy-pic Ready");
 });

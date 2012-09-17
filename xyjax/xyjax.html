@@ -513,43 +513,35 @@ Also see [[AdvancedOptions]]</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
-<div title="ArrowFeature" creator="isao" modifier="isao" created="201109031827" modified="201209131320" tags="Sample" changecount="136">
+<div title="ArrowFeature" creator="isao" modifier="isao" created="201109031827" modified="201209171211" tags="Sample" changecount="139">
 <pre>\[
 \begin{xy}
-&lt;3pc,0pc&gt;:(0,0),
-0*+\txt{start}=&quot;start&quot;,
-(1,0) *+=+[o][F-]{0}=&quot;0&quot;,
-(2,0) *+=+[o][F-]{1}=&quot;1&quot;,
-(3,0) *+=+[o][F-]{2}=&quot;2&quot;,
-(4,0) *+=+[o][F=]{3}=&quot;3&quot;,
-
-\POS &quot;start&quot; \ar &quot;0&quot;
-\POS &quot;0&quot; \ar@(r,u) &quot;0&quot;^b \ar &quot;1&quot;_a
-\POS &quot;1&quot; \ar &quot;2&quot;^b \ar@(r,d) &quot;1&quot;_a
-\POS &quot;2&quot; \ar &quot;3&quot;^b
-  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; _(.2)a &quot;1&quot;
-\POS &quot;3&quot; \ar `ur^l &quot;0&quot; `^dr &quot;0&quot;^b &quot;0&quot;
-  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; &quot;1&quot;
+\xymatrix @*[F-] @*[o] @*+ @*+ {
+*\txt{start} \ar[r]
+ &amp; 0 \ar@(r,u)[]^b \ar[r]_a
+ &amp; 1 \ar[r]^b \ar@(r,d)[]_a
+ &amp; 2 \ar[r]^b
+  \ar `dr_l[l] `_ur[l] _(.2)a[l]
+ &amp; *++[o][F=]{3}
+  \ar `ur^l[lll] `^dr[lll]^b [lll]
+  \ar `dr_l[ll] `_ur[ll] [ll]
+}
 \end{xy}
 \]
 
 Source Code:
 {{{
 \begin{xy}
-&lt;3pc,0pc&gt;:(0,0),
-0*+\txt{start}=&quot;start&quot;,
-(1,0) *+{0} *\cir&lt;.6pc&gt;{}=&quot;0&quot;,
-(2,0) *+{1} *\cir&lt;.6pc&gt;{}=&quot;1&quot;,
-(3,0) *+{2} *\cir&lt;.6pc&gt;{}=&quot;2&quot;,
-(4,0) *+{3} *\cir&lt;.45pc&gt;{}*\cir&lt;.6pc&gt;{}=&quot;3&quot;,
-
-\POS &quot;start&quot; \ar &quot;0&quot;
-\POS &quot;0&quot; \ar@(r,u) &quot;0&quot;^b \ar &quot;1&quot;_a
-\POS &quot;1&quot; \ar &quot;2&quot;^b \ar@(r,d) &quot;1&quot;_a
-\POS &quot;2&quot; \ar &quot;3&quot;^b
-  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; _(.2)a &quot;1&quot;
-\POS &quot;3&quot; \ar `ur^l &quot;0&quot; `^dr &quot;0&quot;^b &quot;0&quot;
-  \ar `dr_l &quot;1&quot; `_ur &quot;1&quot; &quot;1&quot;
+\xymatrix @*[F-] @*[o] @*+ @*+ {
+*\txt{start} \ar[r]
+ &amp; 0 \ar@(r,u)[]^b \ar[r]_a
+ &amp; 1 \ar[r]^b \ar@(r,d)[]_a
+ &amp; 2 \ar[r]^b
+  \ar `dr_l[l] `_ur[l] _(.2)a[l]
+ &amp; *++[o][F=]{3}
+  \ar `ur^l[lll] `^dr[lll]^b [lll]
+  \ar `dr_l[ll] `_ur[ll] [ll]
+}
 \end{xy}
 }}}</pre>
 </div>
@@ -807,39 +799,33 @@ Source code:
 \]
 </pre>
 </div>
-<div title="CovariantFunctor" modifier="isao" created="201108060726" modified="201108181418" tags="Sample" changecount="18">
+<div title="CovariantFunctor" modifier="isao" created="201108060726" modified="201209171223" tags="Sample" changecount="19">
 <pre>\[
 \begin{xy}
-&lt;-3em,0em&gt;*{\mathscr{C}},
-&lt;0em,0em&gt;*+{a}=&quot;a&quot;, &lt;4em,0em&gt;*+{b}=&quot;b&quot;, &lt;4em,-4em&gt;*+{c}=&quot;c&quot;,
-&quot;a&quot;;&quot;b&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle f},
-&quot;b&quot;;&quot;c&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle g},
-&quot;a&quot;;&quot;c&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.6em/{\scriptstyle g \circ f},
-&quot;b&quot;+/r4em/;&quot;b&quot;+/r8em/ **@{~} ?&gt;*@2{&gt;} ?&lt;&gt;(.5)*!/_.6em/{F},
-&quot;c&quot;+/r4em/;&quot;c&quot;+/r8em/ **@{~} ?&gt;*@2{&gt;} ?&lt;&gt;(.5)*!/_.6em/{F},
-&quot;a&quot;+/r15em/*+{Fa}=&quot;Fa&quot;, &quot;b&quot;+/r15em/*+{Fb}=&quot;Fb&quot;, &quot;c&quot;+/r15em/*+{Fc}=&quot;Fc&quot;,
-&quot;Fb&quot;+/r3em/*{\mathscr{D}},
-&quot;Fa&quot;;&quot;Fb&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle Ff},
-&quot;Fb&quot;;&quot;Fc&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle Fg},
-&quot;Fa&quot;;&quot;Fc&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/r3em/{\scriptstyle F(g \circ f)=Fg\circ Ff},
+\xymatrix @1 {
+{\mathscr{C}} &amp; 
+  a \ar[r]^f \ar[dr]_{g \circ f} &amp; 
+  b \ar[d]^g &amp; 
+  \ar@{~&gt;}[r]^F &amp; &amp;
+  Fa \ar[r]^{Ff} \ar[dr]_*[l]{\scriptstyle F(g\circ f) = Fg\circ Ff} &amp; 
+  Fb \ar[d]^{Fg} &amp; {\mathscr{D}} \\
+&amp;&amp; c &amp; \ar@{~&gt;}[r]^F &amp;&amp;&amp; Fc
+}
 \end{xy}
 \]
 
 Source code:
 {{{
 \begin{xy}
-&lt;-3em,0em&gt;*{\mathscr{C}},
-&lt;0em,0em&gt;*+{a}=&quot;a&quot;, &lt;4em,0em&gt;*+{b}=&quot;b&quot;, &lt;4em,-4em&gt;*+{c}=&quot;c&quot;,
-&quot;a&quot;;&quot;b&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle f},
-&quot;b&quot;;&quot;c&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle g},
-&quot;a&quot;;&quot;c&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.6em/{\scriptstyle g \circ f},
-&quot;b&quot;+/r4em/;&quot;b&quot;+/r8em/ **@{~} ?&gt;*@2{&gt;} ?&lt;&gt;(.5)*!/_.6em/{F},
-&quot;c&quot;+/r4em/;&quot;c&quot;+/r8em/ **@{~} ?&gt;*@2{&gt;} ?&lt;&gt;(.5)*!/_.6em/{F},
-&quot;a&quot;+/r15em/*+{Fa}=&quot;Fa&quot;, &quot;b&quot;+/r15em/*+{Fb}=&quot;Fb&quot;, &quot;c&quot;+/r15em/*+{Fc}=&quot;Fc&quot;,
-&quot;Fb&quot;+/r3em/*{\mathscr{D}},
-&quot;Fa&quot;;&quot;Fb&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle Ff},
-&quot;Fb&quot;;&quot;Fc&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.6em/{\scriptstyle Fg},
-&quot;Fa&quot;;&quot;Fc&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/r3em/{\scriptstyle F(g \circ f)=Fg\circ Ff},
+\xymatrix @1 {
+{\mathscr{C}} &amp; 
+  a \ar[r]^f \ar[dr]_{g \circ f} &amp; 
+  b \ar[d]^g &amp; 
+  \ar@{~&gt;}[r]^F &amp; &amp;
+  Fa \ar[r]^{Ff} \ar[dr]_*[l]{\scriptstyle F(g\circ f) = Fg\circ Ff} &amp; 
+  Fb \ar[d]^{Fg} &amp; {\mathscr{D}} \\
+&amp;&amp; c &amp; \ar@{~&gt;}[r]^F &amp;&amp;&amp; Fc
+}
 \end{xy}
 }}}</pre>
 </div>
@@ -1306,7 +1292,7 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="PathFeature" creator="isao" modifier="isao" created="201109031819" modified="201109041014" tags="Sample" changecount="8">
+<div title="PathFeature" creator="isao" modifier="isao" created="201109031819" modified="201209171224" tags="Sample" changecount="9">
 <pre>\[
 \begin{xy}
 &lt;0.3pc,0pc&gt;:(0,0)
@@ -1565,61 +1551,6 @@ Source code:
 &quot;ac&quot;;&quot;abc&quot; **@{-} ?&gt;*@{&gt;},
 \end{xy}
 }}}</pre>
-</div>
-<div title="Pullback" creator="isao" modifier="isao" created="201108060725" modified="201209131226" tags="Sample" changecount="18">
-<pre>\[
-\begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
-\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
-\POS &quot;x&quot; \ar_{f} &quot;z&quot;
-\POS &quot;y&quot; \ar^{g} &quot;z&quot;
-\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
-\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
-\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
-\end{xy}
-\]
-\[
-\begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;,
-&quot;xy&quot;;&quot;x&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle p},
-&quot;xy&quot;;&quot;y&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle q},
-&quot;x&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle f},
-&quot;y&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle g},
-&quot;u&quot;;&quot;xy&quot; **@{--} ?&gt;*@{&gt;},
-&quot;u&quot;;&quot;y&quot; **\crv{&lt;-3em,-2em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.5em/{y},
-&quot;u&quot;;&quot;x&quot; **\crv{&lt;2em,3em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.5em/{x}
-\end{xy}
-\]
-
-Source code:
-{{{
-\begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
-\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
-\POS &quot;x&quot; \ar_{f} &quot;z&quot;
-\POS &quot;y&quot; \ar^{g} &quot;z&quot;
-\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
-\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
-\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
-\end{xy}
-}}}
-{{{
-\begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;,
-&quot;xy&quot;;&quot;x&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle p},
-&quot;xy&quot;;&quot;y&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle q},
-&quot;x&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^0.5em/{\scriptstyle f},
-&quot;y&quot;;&quot;z&quot; **@{-} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_0.5em/{\scriptstyle g},
-&quot;u&quot;;&quot;xy&quot; **@{--} ?&gt;*@{&gt;},
-&quot;u&quot;;&quot;y&quot; **\crv{&lt;-3em,-2em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/^.5em/{y},
-&quot;u&quot;;&quot;x&quot; **\crv{&lt;2em,3em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.5em/{x}
-\end{xy}
-}}}
-</pre>
 </div>
 <div title="QuiverMutation" creator="isao" modifier="isao" created="201108101443" modified="201108211019" tags="Sample" changecount="55">
 <pre>\[
@@ -2308,7 +2239,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209131231" changecount="59">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209171111" changecount="63">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
 ** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
@@ -2316,6 +2247,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 
 * Implement the kernel (@@almost done@@)
 ** --Positions-- (@@done@@)
+*** NOTE: &lt;corner&gt; A does not work.
 ** Objects (@@almost done@@)
 *** TODO: implements below.
 **** --TeX box-- (@@done@@)
@@ -2363,8 +2295,9 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 *** --Arrows-- (@@almost done@@)
 **** TODO: implements @!.
 ** Two-cell feature
-** Matrix feature
-*** Xy-matrices
+** --Matrix feature-- (@@done@@)
+*** --Xy-matrices-- (@@done@@)
+**** NOTE: \xymatrixrowsep, \xymatrixcolsep, \entrymodifiers, \everyentry, \Row, \Col, \CompileMatrices, \NoCompileMatrices does not work.
 ** Graph feature
 ** Knots and Links feature
 </pre>
@@ -2373,7 +2306,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 <pre>&gt; Xy-pic is a package for typesetting graphs and diagrams using the principle of &quot;logical composition of visual components.&quot;
 Please visit [[Xy-pic's home page|http://www.tug.org/applications/Xy-pic/]]</pre>
 </div>
-<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201209131225" changecount="109">
+<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201209151434" changecount="113">
 <pre>!About XyJax
 XyJax is a almost [[Xy-pic]] compatible package for MathJax.
 This software is under development, so this release is alpha-quality (often buggy).
@@ -2381,27 +2314,21 @@ This software is under development, so this release is alpha-quality (often bugg
 XyJax enable us to draw diagrams like the following figure, so-called commutative diagram.
 \[
 \begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
-\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
-\POS &quot;x&quot; \ar_{f} &quot;z&quot;
-\POS &quot;y&quot; \ar^{g} &quot;z&quot;
-\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
-\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
-\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
+\xymatrix @1 {
+U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
+ &amp; X \times_Z Y \ar[d]^q \ar[r]_p &amp; X \ar[d]_f \\
+ &amp; Y \ar[r]^g &amp; Z
+}
 \end{xy}
 \]
 This diagram was drawn by the code:
 {{{
 \begin{xy}
-&lt;0em,0em&gt;*+{X \times Y}=&quot;xy&quot;, &lt;5em,0em&gt;*+{X}=&quot;x&quot;, &lt;0em,-5em&gt;*+{Y}=&quot;y&quot;,
-&lt;5em,-5em&gt;*+{Z}=&quot;z&quot;, &lt;-4em,4em&gt;*+={U}=&quot;u&quot;
-\POS &quot;xy&quot; \ar_{p} &quot;x&quot; \ar^{q} &quot;y&quot;
-\POS &quot;x&quot; \ar_{f} &quot;z&quot;
-\POS &quot;y&quot; \ar^{g} &quot;z&quot;
-\POS &quot;u&quot; \ar@{.&gt;}|{\langle x,y \rangle} &quot;xy&quot;
-\POS &quot;u&quot; \ar@/^/^{x} &quot;x&quot;
-\POS &quot;u&quot; \ar@/_/_{y} &quot;y&quot;
+\xymatrix @1 {
+U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
+ &amp; X \times_Z Y \ar[d]^q \ar[r]_p &amp; X \ar[d]_f \\
+ &amp; Y \ar[r]^g &amp; Z
+}
 \end{xy}
 }}}
 
@@ -2409,6 +2336,84 @@ This diagram was drawn by the code:
 * Supported Browsers: Firefox, Safari, Chrome, Opera, Internet Explorer 9 (IE9 Standards Mode only)
 * Unsupported Browsers: Internet Explorer 8 or lower, etc...
 </pre>
+</div>
+<div title="XymatrixFeature" creator="isao" modifier="isao" created="201108060725" modified="201209171245" tags="Sample" changecount="34">
+<pre>\[
+\begin{xy}
+\xymatrix @1 {
+U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
+ &amp; X \times_Z Y \ar[d]^q \ar[r]_p &amp; X \ar[d]_f \\
+ &amp; Y \ar[r]^g &amp; Z
+}
+\end{xy}
+\]
+\[
+\begin{xy}
+\xymatrix@1@R=1pc{
+\zeta \ar@{|-&gt;} [dd] \ar@{.&gt;}_\theta [rd] \ar@/^/^\psi [rrd] \\
+ &amp; \xi \ar@{|-&gt;} [dd] \ar_\phi [r] &amp; \eta \ar@{|-&gt;} [dd] \\
+ P_{F}\zeta \ar_t [rd] \ar@/^/ [rrd]|!{[ru];[rd]}\hole \\
+ &amp; P_{F}\xi \ar [r] &amp; P_{F}\eta
+}
+\end{xy}
+\]
+\[
+\begin{xy}
+\xymatrix @W=3pc @H=1pc @R=0pc @*[F-] {
+: \save+&lt;-4pc,1pc&gt;*{\it root}
+    \ar[]
+  \restore \\
+{\bullet}
+  \save*{}
+    \ar `r[dd]+/r4pc/ `[dd] [dd]
+  \restore \\
+{\bullet}
+  \save*{}
+    \ar `r[d]+/r3pc/ `[d]+/d2pc/ `[uu]+/l3pc/ `[uu] [uu]
+  \restore \\
+1
+}
+\end{xy}
+\]
+
+Source code:
+{{{
+\begin{xy}
+\xymatrix @1 {
+U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
+ &amp; X \times_Z Y \ar[d]^q \ar[r]_p &amp; X \ar[d]_f \\
+ &amp; Y \ar[r]^g &amp; Z
+}
+\end{xy}
+}}}
+{{{
+\begin{xy}
+\xymatrix@1@R=1pc{
+\zeta \ar@{|-&gt;} [dd] \ar@{.&gt;}_\theta [rd] \ar@/^/^\psi [rrd] \\
+ &amp; \xi \ar@{|-&gt;} [dd] \ar_\phi [r] &amp; \eta \ar@{|-&gt;} [dd] \\
+ P_{F}\zeta \ar_t [rd] \ar@/^/ [rrd]|!{[ru];[rd]}\hole \\
+ &amp; P_{F}\xi \ar [r] &amp; P_{F}\eta
+}
+\end{xy}
+}}}
+{{{
+\begin{xy}
+\xymatrix @W=3pc @H=1pc @R=0pc @*[F-] {
+: \save+&lt;-4pc,1pc&gt;*{\it root}
+    \ar[]
+  \restore \\
+{\bullet}
+  \save*{}
+    \ar `r[dd]+/r4pc/ `[dd] [dd]
+  \restore \\
+{\bullet}
+  \save*{}
+    \ar `r[d]+/r3pc/ `[d]+/d2pc/ `[uu]+/l3pc/ `[uu] [uu]
+  \restore \\
+1
+}
+\end{xy}
+}}}</pre>
 </div>
 </div>
 <!--POST-STOREAREA-->
