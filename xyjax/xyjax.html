@@ -1110,8 +1110,16 @@ p-&lt;.5pc,2pc&gt;*{C}=&quot;C&quot;, p+&lt;6pc,-.5pc&gt;*{D}=&quot;D&quot;,
 \end{xy}
 }}}</pre>
 </div>
-<div title="InverseFunction" creator="isao" modifier="isao" created="201108061420" modified="201108181513" tags="Sample" changecount="30">
+<div title="InverseFunction" creator="isao" modifier="isao" created="201108061420" modified="201209301326" tags="Sample" changecount="47">
 <pre>\[
+\begin{xy}
+\xymatrix @C=4pc {
+  x \ar@(lu,ld) []_{id} \ar@/^/^f [r]
+&amp; f(x) \ar@/^/^{f^{-1}} [l]
+}
+\end{xy}
+\]
+\[
 \begin{xy}
 *+[o]{x}=&quot;x&quot;, &lt;6em,0em&gt;*+{f(x)}=&quot;fx&quot;,
 &quot;x&quot;;&quot;fx&quot; **\crv{&lt;3em,1.5em&gt;} ?&gt;*@{&gt;} ?&lt;&gt;(.5)*!/_.5em/{\scriptstyle f}, 
@@ -1121,6 +1129,14 @@ p-&lt;.5pc,2pc&gt;*{C}=&quot;C&quot;, p+&lt;6pc,-.5pc&gt;*{D}=&quot;D&quot;,
 \]
 
 Source code:
+{{{
+\begin{xy}
+\xymatrix @C=4pc {
+  x \ar@(lu,ld) []_{id} \ar@/^/^f [r]
+&amp; f(x) \ar@/^/^{f^{-1}} [l]
+}
+\end{xy}
+}}}
 {{{
 \begin{xy}
 *+[o]{x}=&quot;x&quot;, &lt;6em,0em&gt;*+{f(x)}=&quot;fx&quot;,
@@ -2153,26 +2169,20 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209171111" changecount="63">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209301319" changecount="69">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
 ** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
-** implement evaluator for the user-defined macros.
+** support comments.
+** support user-defined macros.
 
 * Implement the kernel (@@almost done@@)
 ** --Positions-- (@@done@@)
 *** NOTE: &lt;corner&gt; A does not work.
 ** Objects (@@almost done@@)
 *** TODO: implements below.
-**** --TeX box-- (@@done@@)
-**** --wrap up box-- (@@done@@)
-**** --Composite object box-- (@@done@@)
-**** --xybox-- (@@done@@)
 **** Restore original reference point
 **** Hidden object
-**** --Invisible object-- (@@done@@)
-**** --Use shape-- (@@done@@)
-**** --Define shape-- (@@done@@)
 ** --Decorations-- (@@done@@)
 *** @@NOTE@@: TeX commands, xyverbose, xytracing, xyquiet, xycompile, xycompileto does not work.
 
@@ -2204,17 +2214,53 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 ** Import graphics extension
 
 * Implement features
-** Arrow and Path feature
+** --Arrow and Path feature-- (@@almost done@@)
 *** --Paths-- (@@done@@)
 *** --Arrows-- (@@almost done@@)
 **** TODO: implements @!.
-** Two-cell feature
+** --Two-cell feature-- (@@almost done@@)
+*** TODO: implements \xtwocell's &lt;displace&gt;, \modmapobject{}.
+*** NOTE: \modmapobject, \twocellhead, \twocelltail, \arrowobject, \curveobject, \uppercurveobject, \lowercurveobject, \twocellstyle, \UseTwocells, \UseHalfTwocells, \UseCompositeMaps, \UseAllTwocells
 ** --Matrix feature-- (@@done@@)
 *** --Xy-matrices-- (@@done@@)
 **** NOTE: \xymatrixrowsep, \xymatrixcolsep, \entrymodifiers, \everyentry, \Row, \Col, \CompileMatrices, \NoCompileMatrices does not work.
 ** Graph feature
 ** Knots and Links feature
 </pre>
+</div>
+<div title="TwocellFeature" creator="isao" modifier="isao" created="201209301354" modified="201209301356" tags="Sample" changecount="3">
+<pre>\[
+\begin{xy}
+\xymatrix @=4pc {
+  x \ruppertwocell^f{\alpha}
+    \ar^(0.35){f'}[r]
+    \rlowertwocell_{f''}{\alpha'}
+&amp; y
+}
+\end{xy} = \begin{xy}
+\xymatrix @=4pc {
+  x \rtwocell^f_{f''}{*[r]{\scriptstyle \alpha'\cdot\alpha}}
+&amp; y
+}
+\end{xy}
+\]
+
+Source code:
+{{{
+\begin{xy}
+\xymatrix @=4pc {
+  x \ruppertwocell^f{\alpha}
+    \ar^(0.35){f'}[r]
+    \rlowertwocell_{f''}{\alpha'}
+&amp; y
+}
+\end{xy} = \begin{xy}
+\xymatrix @=4pc {
+  x \rtwocell^f_{f''}{*[r]{\scriptstyle \alpha'\cdot\alpha}}
+&amp; y
+}
+\end{xy}
+}}}</pre>
 </div>
 <div title="Xy-pic" creator="isao" modifier="isao" created="201108071442" modified="201108071442" changecount="2">
 <pre>&gt; Xy-pic is a package for typesetting graphs and diagrams using the principle of &quot;logical composition of visual components.&quot;

@@ -1992,6 +1992,219 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     }
   });
   
+  // <command> ::= <twocell> <twocell switch>* <twocell arrow>
+  AST.Command.Twocell = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Command.Twocell.Hops2cell} twocell 2-cell
+     * @param {List[AST.Command.Twocell.Switch.*]} switches switches
+     * @param {AST.Command.Twocell.Arrow.*} arrow
+     */
+    Init: function (twocell, switches, arrow) {
+      this.twocell = twocell;
+      this.switches = switches;
+      this.arrow = arrow;
+    },
+    toString: function () {
+      return this.twocell.toString() + this.switches.mkString("") + this.arrow;
+    }
+  });
+  // <twocell> ::= '\' /[lrud]+/ 'twocell'
+  //           |   '\xtwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+  AST.Command.Twocell.Hops2cell = MathJax.Object.Subclass({
+    /**
+     * @param {String} hops hops
+     * @param {Option[AST.Object]} maybeDisplace displacement
+     */
+    Init: function (hops, maybeDisplace) {
+      this.hops = hops;
+      this.maybeDisplace = maybeDisplace;
+    }
+  });
+  AST.Command.Twocell.Twocell = AST.Command.Twocell.Hops2cell.Subclass({
+    toString: function () {
+      return "\\xtwocell[" + this.hops + "]" + this.maybeDisplace.getOrElse("{}");
+    }
+  });
+  //           |   '\' /[lrud]+/ 'uppertwocell'
+  //           |   '\xuppertwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+  AST.Command.Twocell.UpperTwocell = AST.Command.Twocell.Hops2cell.Subclass({
+    toString: function () {
+      return "\\xuppertwocell[" + this.hops + "]" + this.maybeDisplace.getOrElse("{}");
+    }
+  });
+  //           |   '\' /[lrud]+/ 'lowertwocell'
+  //           |   '\xlowertwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+  AST.Command.Twocell.LowerTwocell = AST.Command.Twocell.Hops2cell.Subclass({
+    toString: function () {
+      return "\\xlowertwocell[" + this.hops + "]" + this.maybeDisplace.getOrElse("{}");
+    }
+  });
+  //           |   '\' /[lrud]+/ 'compositemap'
+  //           |   '\xcompositemap' '[' /[lrud]+/ ']' '{' <text> '}'
+  AST.Command.Twocell.CompositeMap = AST.Command.Twocell.Hops2cell.Subclass({
+    toString: function () {
+      return "\\xcompositemap[" + this.hops + "]" + this.maybeDisplace.getOrElse("{}");
+    }
+  });
+  
+  // <twocell switch> ::= '^' <twocell label>
+  AST.Command.Twocell.Switch = MathJax.Object.Subclass({});
+  AST.Command.Twocell.Switch.UpperLabel = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Command.Twocell.Label} label label
+     */
+    Init: function (label) {
+      this.label = label;
+    },
+    toString: function () {
+      return "^" + this.label;
+    }
+  });
+  //          |   '_' <twocell label>
+  AST.Command.Twocell.Switch.LowerLabel = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Command.Twocell.Label} label label
+     */
+    Init: function (label) {
+      this.label = label;
+    },
+    toString: function () {
+      return "_" + this.label;
+    }
+  });
+  //          |   <nudge>
+  AST.Command.Twocell.Switch.SetCurvature = MathJax.Object.Subclass({
+    /**
+     * @param {AST.Command.Twocell.Nudge.*} nudge
+     */
+    Init: function (nudge) {
+      this.nudge = nudge;
+    },
+    toString: function () {
+      return this.nudge.toString();
+    }
+  });
+  //          |   '\omit'
+  AST.Command.Twocell.Switch.DoNotSetCurvedArrows = MathJax.Object.Subclass({
+    toString: function () {
+      return "\\omit";
+    }
+  });
+  //          |   '~!'
+  AST.Command.Twocell.Switch.PlaceModMapObject = MathJax.Object.Subclass({
+    toString: function () {
+      return "~!";
+    }
+  });
+  
+  //          |   '~' ( '`' | "'" ) '{' <object> '}'
+  AST.Command.Twocell.Switch.ChangeHeadTailObject = MathJax.Object.Subclass({
+    /**
+     * @param {String} what
+     * @param {AST.Object} object
+     */
+    Init: function (what, object) {
+      this.what = what;
+      this.object = object;
+    },
+    toString: function () {
+      return "~" + this.what + "{" + this.object + "}";
+    }
+  });
+  
+  //          |   '~' ( '' | '^' | '_' ) '{' <object> ( '~**' <object> )? '}'
+  AST.Command.Twocell.Switch.ChangeCurveObject = MathJax.Object.Subclass({
+    /**
+     * @param {String} what
+     * @param {AST.Object} spacer
+     * @param {AST.Object} maybeObject
+     */
+    Init: function (what, spacer, maybeObject) {
+      this.what = what;
+      this.spacer = spacer;
+      this.maybeObject = maybeObject;
+    },
+    toString: function () {
+      return "~" + this.what + "{" + this.spacer + (this.maybeObject.isDefined? "~**" + this.maybeObject.get : "") + "}";
+    }
+  });
+  
+  // <twocell label> ::= <digit> | <letter> | <cs>
+  //                 |   '{' <nudge>? '*' <object> '}'
+  //                 |   '{' <nudge>? <text> '}'
+  AST.Command.Twocell.Label = MathJax.Object.Subclass({
+    /**
+     * @param {Option[AST.Command.Twocell.Nudge.*]} maybeNudge
+     * @param {AST.Object} labelObject
+     */
+    Init: function (maybeNudge, labelObject) {
+      this.maybeNudge = maybeNudge;
+      this.labelObject = labelObject;
+    },
+    toString: function () {
+      return this.maybeNudge.toString() + this.labelObject;
+    }
+  });
+  
+  // <nudge> ::= '<' <factor> '>'
+  //         |   '<\omit>'
+  AST.Command.Twocell.Nudge = MathJax.Object.Subclass({});
+  AST.Command.Twocell.Nudge.Number = AST.Command.Twocell.Nudge.Subclass({
+    /**
+     * @param {Number} number number
+     */
+    Init: function (number) {
+      this.number = number;
+    },
+    toString: function () {
+      return "<" + this.number + ">";
+    }
+  });
+  AST.Command.Twocell.Nudge.Omit = AST.Command.Twocell.Nudge.Subclass({
+    toString: function () {
+      return "<\\omit>";
+    }
+  });
+  
+  // <twocell arrow> ::= '{' <twocell tok> (<twocell label entry> '}'
+  //                 |   '{' <twocell label entry> '}'
+  //                 |   <empty>
+  // <twocell tok> ::= '^' | '_' | '='
+  //               |   '\omit'
+  //               |   '`' | "'" | '"' | '!'
+  // <twocell label entry> ::= '*' <object>
+  //                       |   <text>
+  AST.Command.Twocell.Arrow = MathJax.Object.Subclass({});
+  AST.Command.Twocell.Arrow.WithOrientation = AST.Command.Twocell.Arrow.Subclass({
+    /**
+     * @param {String} tok
+     * @param {AST.Object} labelObject
+     */
+    Init: function (tok, labelObject) {
+      this.tok = tok;
+      this.labelObject = labelObject;
+    },
+    toString: function () {
+      return "{[" + this.tok + "] " + this.labelObject + "}";
+    }
+  });
+  //                 |   '{' <nudge> <twocell label entry> '}'
+  AST.Command.Twocell.Arrow.WithPosition = AST.Command.Twocell.Arrow.Subclass({
+    /**
+     * @param {AST.Command.Twocell.Nudge.*} nudge
+     * @param {AST.Object} labelObject
+     */
+    Init: function (nudge, labelObject) {
+      this.nudge = nudge;
+      this.labelObject = labelObject;
+    },
+    toString: function () {
+      return "{[" + this.nudge + "] " + this.labelObject + "}";
+    }
+  });
+  
+  
+  
   
   var fun = FP.Parsers.fun;
   var elem = FP.Parsers.elem;
@@ -2726,7 +2939,11 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           )
         )))
       )).to(function (mo) {
-        return AST.Modifier.Shape.Frame(mo.head, mo.tail);
+        var main = mo.head;
+        if (main === "") {
+          main = "-";
+        }
+        return AST.Modifier.Shape.Frame(main, mo.tail);
       });
     }),
     
@@ -2848,6 +3065,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
     //           |   '\connect' <object>
     //           |   '\relax'
     //           |   '\xyignore' '{' <pos> <decor> '}'
+    //           |   <twocell command>
     command: memo(function () {
       return or(
         lit("\\ar").andr(fun(rep(p.arrowForm))).and(p.path).to(function (fsp) {
@@ -2886,7 +3104,8 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
         }),
         lit("\\xyshowAST").andr(flit('{')).andr(p.pos).and(p.decor).andl(flit('}')).to(function (pd) {
           return AST.Command.ShowAST(pd.head, pd.tail);
-        })
+        }),
+        p.twocellCommand
       );
     }),
     
@@ -3349,7 +3568,7 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
             or(
               elem("{").andr(p.text).andl(felem("}")).to(function (t) { return "{" + t + "}"; }),
               elem("\\").andr(fun(
-                not(regex(/^(\\|ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|xyignore)/))
+                not(regex(/^(\\|ar|xymatrix|PATH|afterPATH|save|restore|POS|afterPOS|drop|connect|xyignore|([lrud]+(twocell|uppertwocell|lowertwocell|compositemap))|xtwocell|xuppertwocell|xlowertwocell|xcompositemap)/))
               )).andr(fun(
                 regex(/^[{}&]/).opt().to(function (c) { return c.getOrElse(""); })
               )).to(function (t) {
@@ -3370,7 +3589,162 @@ MathJax.Hub.Register.StartupHook("TeX Xy-pic Require",function () {
           };
         })
       )
+    }),
+    
+    // <command> ::= <twocell> <twocell switch>* <twocell arrow>
+    twocellCommand: memo(function () {
+      return p.twocell().and(fun(rep(p.twocellSwitch))).and(p.twocellArrow).to(function (tsa) {
+        return AST.Command.Twocell(tsa.head.head, tsa.head.tail, tsa.tail);
+      });
+    }),
+    
+    // <twocell> ::= '\' /[lrud]+/ 'twocell'
+    //           |   '\' /[lrud]+/ 'uppertwocell'
+    //           |   '\' /[lrud]+/ 'lowertwocell'
+    //           |   '\' /[lrud]+/ 'compositemap'
+    //           |   '\xtwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+    //           |   '\xuppertwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+    //           |   '\xlowertwocell' '[' /[lrud]+/ ']' '{' <text> '}'
+    //           |   '\xcompositemap' '[' /[lrud]+/ ']' '{' <text> '}'
+    twocell: memo(function () {
+      return or(
+        regexLit(/^\\[lrud]+twocell/).to(function (h) {
+          var hops = h.substring(1, h.length - "twocell".length);
+          return AST.Command.Twocell.Twocell(hops, FP.Option.empty);
+        }),
+        regexLit(/^\\[lrud]+uppertwocell/).to(function (h) {
+          var hops = h.substring(1, h.length - "uppertwocell".length);
+          return AST.Command.Twocell.UpperTwocell(hops, FP.Option.empty);
+        }),
+        regexLit(/^\\[lrud]+lowertwocell/).to(function (h) {
+          var hops = h.substring(1, h.length - "lowertwocell".length);
+          return AST.Command.Twocell.LowerTwocell(hops, FP.Option.empty);
+        }),
+        regexLit(/^\\[lrud]+compositemap/).to(function (h) {
+          var hops = h.substring(1, h.length - "compositemap".length);
+          return AST.Command.Twocell.CompositeMap(hops, FP.Option.empty);
+        }),
+        or(
+          lit("\\xtwocell").to(function () { return AST.Command.Twocell.Twocell; }),
+          lit("\\xuppertwocell").to(function () { return AST.Command.Twocell.UpperTwocell; }),
+          lit("\\xlowertwocell").to(function () { return AST.Command.Twocell.LowerTwocell; }),
+          lit("\\xcompositemap").to(function () { return AST.Command.Twocell.CompositeMap; })
+        ).andl(flit("[")).and(fun(regex(/^[lrud]+/))).andl(flit("]")).andl(flit("{")).and(p.text).andl(flit("}")).to(function (cht) {
+          var textObject = AST.Object(FP.List.empty, p.toMath("\\scriptstyle " + cht.tail));
+          return cht.head.head(cht.head.tail, FP.Option.Some(textObject));
+        })
+      );
+    }),
+    
+    // <twocell switch> ::= '^' <twocell label>
+    //          |   '_' <twocell label>
+    //          |   '\omit'
+    //          |   '~!'
+    //          |   '~' ( '`' | "'" ) '{' <object> '}'
+    //          |   '~' ( '' | '^' | '_' ) '{' <object> ( '~**' <object> )? '}'
+    //          |   <nudge>
+    twocellSwitch: memo(function () {
+      return or(
+        lit("^").andr(p.twocellLabel).to(function (l) {
+          return AST.Command.Twocell.Switch.UpperLabel(l);
+        }),
+        lit("_").andr(p.twocellLabel).to(function (l) {
+          return AST.Command.Twocell.Switch.LowerLabel(l);
+        }),
+        lit("\\omit").to(function () {
+          return AST.Command.Twocell.Switch.DoNotSetCurvedArrows();
+        }),
+        lit("~!").to(function () {
+          return AST.Command.Twocell.Switch.PlaceModMapObject();
+        }),
+        regexLit(/^(~[`'])/).andl(flit("{")).and(p.object).andl(flit("}")).to(function (wo) {
+          var what = wo.head.substring(1);
+          return AST.Command.Twocell.Switch.ChangeHeadTailObject(what, wo.tail);
+        }),
+        regexLit(/^(~[\^_]?)/).andl(flit("{")).and(p.object).and(fun(opt(lit("~**").andr(p.object)))).andl(flit("}")).to(function (wso) {
+          var what = wso.head.head.substring(1);
+          var spacer = wso.head.tail;
+          var maybeObject = wso.tail;
+          return AST.Command.Twocell.Switch.ChangeCurveObject(what, spacer, maybeObject);
+        }),
+        p.nudge().to(function (n) {
+          return AST.Command.Twocell.Switch.SetCurvature(n);
+        })
+      );
+    }),
+    
+    // <twocell label> ::= <digit> | <letter> | <cs>
+    //                 |   '{' <nudge>? '*' <object> '}'
+    //                 |   '{' <nudge>? <text> '}'
+    twocellLabel: memo(function () {
+      return or(
+        regexLit(/^[0-9a-zA-Z]/).to(function (c) {
+          var obj = AST.Object(FP.List.empty, p.toMath("\\scriptstyle " + c));
+          return AST.Command.Twocell.Label(FP.Option.empty, obj);
+        }),
+        regexLit(/^(\\[a-zA-Z][a-zA-Z0-9]*)/).to(function (c) {
+          var obj = AST.Object(FP.List.empty, p.toMath("\\scriptstyle " + c));
+          return AST.Command.Twocell.Label(FP.Option.empty, obj);
+        }),
+        lit("{").andr(fun(opt(p.nudge))).andl(flit("*")).and(p.object).andl(flit("}")).to(function (no) {
+          return AST.Command.Twocell.Label(no.head, no.tail);
+        }),
+        lit("{").andr(fun(opt(p.nudge))).and(p.text).andl(felem("}")).to(function (nt) {
+          var obj = AST.Object(FP.List.empty, p.toMath("\\scriptstyle " + nt.tail));
+          return AST.Command.Twocell.Label(nt.head, obj);
+        })
+      );
+    }),
+    
+    // <nudge> ::= '<' <factor> '>'
+    //         |   '<\omit>'
+    nudge: memo(function () {
+      return or(
+        lit("<\\omit>").to(function () {
+          return AST.Command.Twocell.Nudge.Omit();
+        }),
+        lit("<").andr(p.factor).andl(flit(">")).to(function (n) {
+          return AST.Command.Twocell.Nudge.Number(n);
+        })
+      );
+    }),
+    
+    // <twocell arrow> ::= '{' <twocell tok> (<twocell label entry> '}'
+    //                 |   '{' <nudge> <twocell label entry> '}'
+    //                 |   '{' <twocell label entry> '}'
+    //                 |   <empty>
+    // <twocell tok> ::= '^' | '_' | '='
+    //               |   '\omit'
+    //               |   '`' | "'" | '"' | '!'
+    twocellArrow: memo(function () {
+      return or(
+        lit("{").andr(fun(regexLit(/^([\^_=`'"!]|\\omit)/))).and(p.twocellLabelEntry).andl(flit("}")).to(function (te) {
+          return AST.Command.Twocell.Arrow.WithOrientation(te.head, te.tail);
+        }),
+        lit("{").andr(p.nudge).and(p.twocellLabelEntry).andl(flit("}")).to(function (te) {
+          return AST.Command.Twocell.Arrow.WithPosition(te.head, te.tail);
+        }),
+        lit("{").andr(p.twocellLabelEntry).andl(flit("}")).to(function (e) {
+          return AST.Command.Twocell.Arrow.WithOrientation('', e);
+        }),
+        success("no arrow label").to(function () {
+          // TODO 無駄な空描画処理をなくす。
+          return AST.Command.Twocell.Arrow.WithOrientation('', AST.Object(FP.List.empty, p.toMath("\\scriptstyle{}")));
+        })
+      );
+    }),
+    
+    // <twocell label entry> ::= '*' <object>
+    //                       |   <text>
+    twocellLabelEntry: memo(function () {
+      return or(
+        lit("*").andr(p.object),
+        p.text().to(function (t) {
+          return AST.Object(FP.List.empty, p.toMath("\\scriptstyle " + t));
+        })
+      );
     })
+    
   })();
   
   MathJax.Hub.Insert(TEXDEF,{
@@ -4032,6 +4406,16 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
           
           var box = shape.getBoundingBox();
           if (box !== undefined) {
+            box = xypic.Frame.Rect(
+              0, 0,
+              {
+                l:Math.max(0, -(box.x - box.l)),
+                r:Math.max(0, box.x + box.r),
+                u:Math.max(0, box.y + box.u),
+                d:Math.max(0, -(box.y - box.d))
+              }
+            );
+            
             svg.setWidth(box.l + box.r + 2 * p);
             svg.setHeight(box.u + box.d + 2 * p);
             svg.setAttribute("viewBox", [ em2px(box.x - box.l - p), -em2px(box.y + box.u + p), em2px(box.l + box.r + 2 * p), em2px(box.u + box.d + 2 * p) ].join(" "));
@@ -4040,15 +4424,15 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
               var to = textObjects[i];
               var x = parseFloat(to.getAttribute("x"));
               var y = parseFloat(to.getAttribute("y"));
-              to.style.left = "" + em2px(x - (box.x - box.l - p)) + "px";
-              to.style.top = "" + em2px(y + (box.y - box.d)) + "px";
+              to.style.left = "" + em2px(x + box.l + p) + "px";
+              to.style.top = "" + em2px(y) + "px";
             }
             
-            bbox = { h:(box.u + box.d + p), d:p, w:(box.l + box.r + 2 * p), lw:0, rw:(box.l + box.r + 2 * p)}
+            bbox = { h:(box.u + p), d:(box.d + p), w:(box.l + box.r + 2 * p), lw:0, rw:(box.l + box.r + 2 * p)}
             span.bbox = bbox;
-            D = p;
+            D = box.d + p;
             W = box.l + box.r + 2 * p;
-            H = box.h + box.d + p;
+            H = box.h + p;
             
             HTMLCSS.placeBox(scale, 0, -D, true);
             frame.style.width = HTMLCSS.Em(W);
@@ -6694,6 +7078,56 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
       });
     }
   });
+  
+  // @{=>}
+  xypic.Shape.LineGT2ArrowheadShape = xypic.Shape.ArrowheadShape.Subclass({
+    Init: function (c, angle) {
+      this.c = c;
+      this.angle = angle;
+      memoize(this, "getBoundingBox");
+    },
+    box: { l:AST.xypic.lineElementLength, r:AST.xypic.lineElementLength, d:0.258, u:0.258 },
+    r: 0.240,
+    drawDelegate: function (svg) {
+      var halfLen = AST.xypic.lineElementLength;
+      var hshift = em2px(halfLen);
+      var v = 0.5 * AST.xypic.thickness;
+      var vshift = em2px(v);
+      var delta = em2px(Math.sqrt(this.r * this.r - v * v));
+      
+      var gu = svg.createGroup(svg.transformBuilder().translate(halfLen, 0).rotateDegree(-10));
+      var gd = svg.createGroup(svg.transformBuilder().translate(halfLen, 0).rotateDegree(10));
+      gu.createSVGElement("path", {
+        d:"M0,0 Q" + em2px(-0.25) + "," + em2px(-0.023) + " " + em2px(-0.55) + "," + em2px(-0.165)
+      });
+      gd.createSVGElement("path", {
+        d:"M0,0 Q" + em2px(-0.25) + ","+em2px(0.023) + " " + em2px(-0.55) + "," + em2px(0.165)
+      });
+      svg.createSVGElement("path", {
+        d:"M" + (-hshift) + "," + vshift + " L" + (hshift - delta) + "," + vshift + 
+          " M" + (-hshift) + "," + (-vshift) + " L" + (hshift - delta) + "," + (-vshift)
+      });
+    }
+  });
+  
+  // twocell equality arrow
+  xypic.Shape.TwocellEqualityArrowheadShape = xypic.Shape.ArrowheadShape.Subclass({
+    Init: function (c, angle) {
+      this.c = c;
+      this.angle = angle;
+      memoize(this, "getBoundingBox");
+    },
+    box: { l:AST.xypic.lineElementLength, r:AST.xypic.lineElementLength, d:0.5 * AST.xypic.thickness, u:0.5 * AST.xypic.thickness },
+    drawDelegate: function (svg) {
+      var hshift = em2px(AST.xypic.lineElementLength);
+      var vshift = em2px(0.5 * AST.xypic.thickness);
+      svg.createSVGElement("path", {
+        d:"M" + (-hshift) + "," + vshift + " L" + hshift + "," + vshift + 
+          " M" + (-hshift) + "," + (-vshift) + " L" + hshift + "," + (-vshift)
+      });
+    }
+  });
+  
   
   xypic.Shape.LineShape = xypic.Shape.Subclass({
     Init: function (line, object, main, variant, bbox) {
@@ -11436,6 +11870,9 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
         case "//":
           shape = xypic.Shape.SlashSlashArrowheadShape(c, angle);
           break;
+        case "=>":
+          shape = xypic.Shape.LineGT2ArrowheadShape(c, angle);
+          break;
           
         default:
           // TODO 不明な矢印であるエラーを発生させる。
@@ -13735,6 +14172,675 @@ MathJax.Hub.Register.StartupHook("HTML-CSS Xy-pic Require",function () {
   AST.Command.Xymatrix.Entry.ObjectEntry.Augment({
     toShape: function (context) {
       return this.object.toDropShape(context);
+    }
+  });
+  
+  
+  AST.Command.Twocell.Augment({
+    toShape: function (context) {
+      var origEnv = context.env;
+      if (origEnv.c === undefined) {
+        return xypic.Shape.none;
+      }
+      
+      var subEnv = origEnv.duplicate();
+      var subcontext = xypic.DrawingContext(xypic.Shape.none, subEnv);
+      subEnv.twocellmodmapobject = origEnv.twocellmodmapobject || AST.Object(FP.List.empty, AST.ObjectBox.Dir("", "|"));
+      subEnv.twocellhead = origEnv.twocellhead || AST.Object(FP.List.empty, AST.ObjectBox.Dir("", ">"));
+      subEnv.twocelltail = origEnv.twocelltail || AST.Object(FP.List.empty, AST.ObjectBox.Dir("", ""));
+      subEnv.twocellarrowobject = origEnv.twocellarrowobject || AST.Object(FP.List.empty, AST.ObjectBox.Dir("", "=>"));
+      
+      subEnv.twocellUpperCurveObjectSpacer = origEnv.twocellUpperCurveObjectSpacer;
+      subEnv.twocellUpperCurveObject = origEnv.twocellUpperCurveObject;
+      subEnv.twocellLowerCurveObjectSpacer = origEnv.twocellLowerCurveObjectSpacer;
+      subEnv.twocellLowerCurveObject = origEnv.twocellLowerCurveObject;
+      
+      // temporary attributes
+      subEnv.twocellUpperLabel = FP.Option.empty;
+      subEnv.twocellLowerLabel = FP.Option.empty;
+      subEnv.twocellCurvatureEm = FP.Option.empty;
+      subEnv.twocellShouldDrawCurve = true;
+      subEnv.twocellShouldDrawModMap = false;
+      
+      this.switches.foreach(function (sw) { sw.setup(subcontext); });
+      this.twocell.toShape(subcontext, this.arrow);
+      context.appendShapeToFront(subcontext.shape);
+    }
+  });
+  
+  AST.Command.Twocell.Hops2cell.Augment({
+    toShape: function (context, arrow) {
+      var env = context.env;
+      var c = env.c;
+      var angle = env.angle;
+      
+      var s = env.c;
+      var e = this.targetPosition(context);
+      if (s === undefined || e === undefined) {
+        return;
+      }
+      
+      var dx = e.x - s.x;
+      var dy = e.y - s.y;
+      if (dx === 0 && dy === 0) {
+        return;
+      }
+      
+      var m = xypic.Frame.Point(
+          s.x + dx * 0.5,
+          s.y + dy * 0.5
+        );
+      var tangle = Math.atan2(dy, dx);
+      var antiClockwiseAngle = tangle + Math.PI / 2;
+      
+      var curvatureEm = env.twocellCurvatureEm.getOrElse(this.defaultCurvature);
+      var ncos = Math.cos(antiClockwiseAngle);
+      var nsin = Math.sin(antiClockwiseAngle);
+      var ucp = this.getUpperControlPoint(s, e, m, curvatureEm, ncos, nsin);
+      var lcp = this.getLowerControlPoint(s, e, m, curvatureEm, ncos, nsin);
+      
+      if (env.twocellShouldDrawCurve) {
+        // upper curve
+        var objectForDrop = env.twocellUpperCurveObjectSpacer;
+        var objectForConnect;
+        if (objectForDrop === undefined) {
+          objectForConnect = AST.Object(FP.List.empty, AST.ObjectBox.Dir("", "-"));
+        } else {
+          if (env.twocellUpperCurveObject !== undefined) {
+            objectForConnect = env.twocellUpperCurveObject.getOrElse(undefined);
+          } else {
+            objectForConnect = undefined;
+          }
+        }
+        this.toUpperCurveShape(context, s, ucp, e, objectForDrop, objectForConnect);
+        if (env.lastCurve.isDefined) {
+          env.angle = tangle;
+          var ucmp = this.getUpperLabelPosition(s, e, m, curvatureEm, ncos, nsin);
+          var uangle = this.getUpperLabelAngle(antiClockwiseAngle, s, e, m, curvatureEm, ncos, nsin);
+          env.twocellUpperLabel.foreach(function (l) {
+            l.toShape(context, ucmp, Math.cos(uangle), Math.sin(uangle), tangle);
+          });
+          if (this.hasUpperTips) {
+            arrow.toUpperTipsShape(context);
+          }
+        }
+        
+        // lower curve
+        var objectForDrop = env.twocellLowerCurveObjectSpacer;
+        var objectForConnect;
+        if (objectForDrop === undefined) {
+          objectForConnect = AST.Object(FP.List.empty, AST.ObjectBox.Dir("", "-"));
+        } else {
+          if (env.twocellLowerCurveObject !== undefined) {
+            objectForConnect = env.twocellLowerCurveObject.getOrElse(undefined);
+          } else {
+            objectForConnect = undefined;
+          }
+        }
+        this.toLowerCurveShape(context, s, lcp, e, objectForDrop, objectForConnect);
+        if (env.lastCurve.isDefined) {
+          env.angle = tangle;
+          var lcmp = this.getLowerLabelPosition(s, e, m, curvatureEm, ncos, nsin);
+          var langle = this.getLowerLabelAngle(antiClockwiseAngle, s, e, m, curvatureEm, ncos, nsin);
+          env.twocellLowerLabel.foreach(function (l) {
+            l.toShape(context, lcmp, Math.cos(langle), Math.sin(langle), tangle);
+          });
+          if (this.hasLowerTips) {
+            arrow.toLowerTipsShape(context);
+          }
+        }
+      }
+      
+      env.c = this.getDefaultArrowPoint(s, e, m, curvatureEm, ncos, nsin);
+      env.angle = antiClockwiseAngle + Math.PI;
+      var labelOrigin = m;
+      arrow.toArrowShape(context, labelOrigin);
+      
+      env.c = c;
+      env.angle = angle;
+    },
+    _toCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      var env = context.env;
+      var origBezier = xypic.Curve.QuadBezier(s, cp, e);
+      var tOfShavedStart = origBezier.tOfShavedStart(s);
+      var tOfShavedEnd = origBezier.tOfShavedEnd(e);
+      if (tOfShavedStart === undefined || tOfShavedEnd === undefined || tOfShavedStart >= tOfShavedEnd) {
+        env.lastCurve = xypic.LastCurve.none;
+        return;
+      }
+      var curveShape = origBezier.toShape(context, objectForDrop, objectForConnect);
+      env.lastCurve = xypic.LastCurve.QuadBezier(origBezier, tOfShavedStart, tOfShavedEnd, curveShape);
+    },
+    targetPosition: function (context) {
+      var env = context.env;
+      var row = env.xymatrixRow;
+      var col = env.xymatrixCol;
+      if (row === undefined || col === undefined) {
+        throw xypic.ExecutionError("rows and columns not found for hops [" + this.hops + "]");
+      }
+      for (var i = 0; i < this.hops.length; i++) {
+        switch (this.hops[i]) {
+          case 'u':
+            row -= 1;
+            break;
+          case 'd':
+            row += 1;
+            break;
+          case 'l':
+            col -= 1;
+            break;
+          case 'r':
+            col += 1;
+            break;
+        }
+      }
+      var id = "" + row + "," + col;
+      return context.env.lookupPos(id, 'in entry "' + env.xymatrixRow + "," + env.xymatrixCol + '": No ' + this + " (is " + id + ") from here.").position(context);
+    }
+  });
+  
+  AST.Command.Twocell.Twocell.Augment({
+    getUpperControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + curvatureEm * ncos,
+        midPoint.y + curvatureEm * nsin
+      );
+    },
+    getLowerControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x - curvatureEm * ncos,
+        midPoint.y - curvatureEm * nsin
+      );
+    },
+    getUpperLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + 0.5 * curvatureEm * ncos,
+        midPoint.y + 0.5 * curvatureEm * nsin
+      );
+    },
+    getLowerLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x - 0.5 * curvatureEm * ncos,
+        midPoint.y - 0.5 * curvatureEm * nsin
+      );
+    },
+    getUpperLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? Math.PI : 0);
+      return antiClockwiseAngle + rot;
+    },
+    getLowerLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? 0 : Math.PI);
+      return antiClockwiseAngle + rot;
+    },
+    getDefaultArrowPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    toUpperCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      this._toCurveShape(context, s, cp, e, objectForDrop, objectForConnect);
+    },
+    toLowerCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      this._toCurveShape(context, s, cp, e, objectForDrop, objectForConnect);
+    },
+    defaultCurvature: 3.5 * AST.xypic.lineElementLength,
+    hasUpperTips: true,
+    hasLowerTips: true
+  });
+  
+  AST.Command.Twocell.UpperTwocell.Augment({
+    getUpperControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + curvatureEm * ncos,
+        midPoint.y + curvatureEm * nsin
+      );
+    },
+    getLowerControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    getUpperLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + 0.5 * curvatureEm * ncos,
+        midPoint.y + 0.5 * curvatureEm * nsin
+      );
+    },
+    getLowerLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    getUpperLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? Math.PI : 0);
+      return antiClockwiseAngle + rot;
+    },
+    getLowerLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? 0 : Math.PI);
+      return antiClockwiseAngle + rot;
+    },
+    getDefaultArrowPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + 0.25 * curvatureEm * ncos,
+        midPoint.y + 0.25 * curvatureEm * nsin
+      );
+    },
+    toUpperCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      this._toCurveShape(context, s, cp, e, objectForDrop, objectForConnect);
+    },
+    toLowerCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      var shavedS = s.edgePoint(e.x, e.y);
+      var shavedE = e.edgePoint(s.x, s.y);
+      if (shavedS.x !== shavedE.x || shavedS.y !== shavedE.y) {
+        context.env.lastCurve = xypic.LastCurve.Line(shavedS, shavedE, s, e, undefined);
+      } else {
+        context.env.lastCurve = xypic.LastCurve.none;
+      }
+    },
+    defaultCurvature: 7 * AST.xypic.lineElementLength,
+    hasUpperTips: true,
+    hasLowerTips: false
+  });
+  
+  AST.Command.Twocell.LowerTwocell.Augment({
+    getUpperControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    getLowerControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + curvatureEm * ncos,
+        midPoint.y + curvatureEm * nsin
+      );
+    },
+    getUpperLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    getLowerLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + 0.5 * curvatureEm * ncos,
+        midPoint.y + 0.5 * curvatureEm * nsin
+      );
+    },
+    getUpperLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? 0 : Math.PI);
+      return antiClockwiseAngle + rot;
+    },
+    getLowerLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var rot = (curvatureEm < 0? Math.PI : 0);
+      return antiClockwiseAngle + rot;
+    },
+    getDefaultArrowPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return xypic.Frame.Point(
+        midPoint.x + 0.25 * curvatureEm * ncos,
+        midPoint.y + 0.25 * curvatureEm * nsin
+      );
+    },
+    toUpperCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      var shavedS = s.edgePoint(e.x, e.y);
+      var shavedE = e.edgePoint(s.x, s.y);
+      if (shavedS.x !== shavedE.x || shavedS.y !== shavedE.y) {
+        context.env.lastCurve = xypic.LastCurve.Line(shavedS, shavedE, s, e, undefined);
+      } else {
+        context.env.lastCurve = xypic.LastCurve.none;
+      }
+    },
+    toLowerCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      this._toCurveShape(context, s, cp, e, objectForDrop, objectForConnect);
+    },
+    defaultCurvature: -7 * AST.xypic.lineElementLength,
+    hasUpperTips: false,
+    hasLowerTips: true
+  });
+  
+  AST.Command.Twocell.CompositeMap.Augment({
+    getUpperControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      var midBoxSize = this.midBoxSize;
+      return xypic.Frame.Ellipse(
+        midPoint.x + curvatureEm * ncos,
+        midPoint.y + curvatureEm * nsin,
+        midBoxSize, midBoxSize, midBoxSize, midBoxSize
+      );
+    },
+    getLowerControlPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      var midBoxSize = this.midBoxSize;
+      return xypic.Frame.Ellipse(
+        midPoint.x + curvatureEm * ncos,
+        midPoint.y + curvatureEm * nsin,
+        midBoxSize, midBoxSize, midBoxSize, midBoxSize
+      );
+    },
+    getUpperLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      var dx = midPoint.x + curvatureEm * ncos - e.x;
+      var dy = midPoint.y + curvatureEm * nsin - e.y;
+      var l = Math.sqrt(dx * dx + dy * dy);
+      return xypic.Frame.Point(
+        e.x + 0.5 * dx,
+        e.y + 0.5 * dy
+      );
+    },
+    getLowerLabelPosition: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      var dx = midPoint.x + curvatureEm * ncos - s.x;
+      var dy = midPoint.y + curvatureEm * nsin - s.y;
+      var l = Math.sqrt(dx * dx + dy * dy);
+      return xypic.Frame.Point(
+        s.x + 0.5 * dx,
+        s.y + 0.5 * dy
+      );
+    },
+    getUpperLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var dx = e.x - midPoint.x + curvatureEm * ncos;
+      var dy = e.y - midPoint.y + curvatureEm * nsin;
+      var angle = Math.atan2(dy, dx);
+      var rot = (curvatureEm < 0? Math.PI : 0);
+      return angle + Math.PI / 2 + rot;
+    },
+    getLowerLabelAngle: function (antiClockwiseAngle, s, e, midPoint, curvatureEm, ncos, nsin) {
+      var dx = midPoint.x + curvatureEm * ncos - s.x;
+      var dy = midPoint.y + curvatureEm * nsin - s.y;
+      var angle = Math.atan2(dy, dx);
+      var rot = (curvatureEm < 0? Math.PI : 0);
+      return angle + Math.PI / 2 + rot;
+    },
+    getDefaultArrowPoint: function (s, e, midPoint, curvatureEm, ncos, nsin) {
+      return midPoint;
+    },
+    toUpperCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      var env = context.env;
+      var start = s;
+      var end = cp;
+      var shavedS = start.edgePoint(end.x, end.y);
+      var shavedE = end.edgePoint(start.x, start.y);
+      var p = env.p;
+      var c = env.c;
+      env.p = start;
+      env.c = end;
+      xypic.Curve.Line(shavedS, shavedE).toShape(context, undefined, "-", "");
+      env.p = p;
+      env.c = c;
+    },
+    toLowerCurveShape: function (context, s, cp, e, objectForDrop, objectForConnect) {
+      var env = context.env;
+      var start = cp;
+      var end = e;
+      var shavedS = start.edgePoint(end.x, end.y);
+      var shavedE = end.edgePoint(start.x, start.y);
+      var p = env.p;
+      var c = env.c;
+      env.p = start;
+      env.c = end;
+      xypic.Curve.Line(shavedS, shavedE).toShape(context, undefined, "-", "");
+      env.p = p;
+      env.c = c;
+    },
+    midBoxSize: 0.5 * AST.xypic.lineElementLength,
+    defaultCurvature: 3.5 * AST.xypic.lineElementLength,
+    hasUpperTips: true,
+    hasLowerTips: true
+  });
+  
+  AST.Command.Twocell.Switch.UpperLabel.Augment({
+    setup: function (context) {
+      var env = context.env;
+      env.twocellUpperLabel = FP.Option.Some(this);
+    },
+    toShape: function (context, curveMidPos, ncos, nsin, tangle) {
+      this.label.toShape(context, curveMidPos, ncos, nsin, tangle);
+    }
+  });
+  
+  AST.Command.Twocell.Switch.LowerLabel.Augment({
+    setup: function (context) {
+      var env = context.env;
+      env.twocellLowerLabel = FP.Option.Some(this);
+    },
+    toShape: function (context, curveMidPos, ncos, nsin, tangle) {
+      this.label.toShape(context, curveMidPos, ncos, nsin, tangle);
+    }
+  });
+  
+  AST.Command.Twocell.Switch.SetCurvature.Augment({
+    setup: function (context) {
+      var env = context.env;
+      if (this.nudge.isOmit) {
+        env.twocellShouldDrawCurve = false;
+      } else {
+        env.twocellCurvatureEm = FP.Option.Some(this.nudge.number * AST.xypic.lineElementLength);
+      }
+    }
+  });
+  
+  AST.Command.Twocell.Switch.DoNotSetCurvedArrows.Augment({
+    setup: function (context) {
+      var env = context.env;
+      env.twocellShouldDrawCurve = false;
+    }
+  });
+  
+  AST.Command.Twocell.Switch.PlaceModMapObject.Augment({
+    setup: function (context) {
+      var env = context.env;
+      env.twocellShouldDrawModMap = true;
+    }
+  });
+  
+  AST.Command.Twocell.Switch.ChangeHeadTailObject.Augment({
+    setup: function (context) {
+      var env = context.env;
+      switch (this.what) {
+        case '`':
+          env.twocelltail = this.object;
+          break;
+        case "'":
+          env.twocellhead = this.object;
+          break;
+      }
+    }
+  });
+  
+  AST.Command.Twocell.Switch.ChangeCurveObject.Augment({
+    setup: function (context) {
+      var env = context.env;
+      switch (this.what) {
+        case '':
+          env.twocellUpperCurveObjectSpacer = this.spacer;
+          env.twocellUpperCurveObject = this.maybeObject;
+          env.twocellLowerCurveObjectSpacer = this.spacer;
+          env.twocellLowerCurveObject = this.maybeObject;
+          break;
+        case '^':
+          env.twocellUpperCurveObjectSpacer = this.spacer;
+          env.twocellUpperCurveObject = this.maybeObject;
+          break;
+        case '_':
+          env.twocellLowerCurveObjectSpacer = this.spacer;
+          env.twocellLowerCurveObject = this.maybeObject;
+          break;
+      }
+    }
+  });
+  
+  AST.Command.Twocell.Label.Augment({
+    toShape: function (context, curveMidPos, ncos, nsin, tangle) {
+      var maybeNudge = this.maybeNudge;
+      var offset;
+      if (maybeNudge.isDefined) {
+        var nudge = maybeNudge.get;
+        if (nudge.isOmit) {
+          return;
+        } else {
+          offset = nudge.number * AST.xypic.lineElementLength;
+        }
+      } else {
+        offset = this.defaultLabelOffset;
+      }
+      
+      var env = context.env;
+      var c = env.c;
+      env.c = xypic.Frame.Point(
+        curveMidPos.x + offset * ncos,
+        curveMidPos.y + offset * nsin
+      );
+      var labelObject = this.labelObject;
+      labelObject.toDropShape(context);
+      env.c = c;
+      
+    },
+    defaultLabelOffset: AST.xypic.lineElementLength
+  });
+  
+  AST.Command.Twocell.Nudge.Number.Augment({
+    isOmit: false
+  });
+  
+  AST.Command.Twocell.Nudge.Omit.Augment({
+    isOmit: true
+  });
+  
+  AST.Command.Twocell.Arrow.Augment({
+    toTipsShape: function (context, reversed, doubleHeaded) {
+      var env = context.env;
+      var lastCurve = env.lastCurve;
+      var c = env.c;
+      var angle = env.angle;
+      
+      var rot = (reversed? Math.PI : 0);
+      var t = lastCurve.tOfPlace(true, true, (reversed? 0 : 1), 0);
+      env.c = lastCurve.position(t);
+      env.angle = lastCurve.angle(t) + rot;
+      env.twocellhead.toDropShape(context);
+      
+      var t = lastCurve.tOfPlace(true, true, (reversed? 1 : 0), 0);
+      env.c = lastCurve.position(t);
+      env.angle = lastCurve.angle(t) + rot;
+      if (doubleHeaded) {
+        env.twocellhead.toDropShape(context);
+      } else {
+        env.twocelltail.toDropShape(context);
+      }
+      
+      if (env.twocellShouldDrawModMap) {
+        var t = lastCurve.tOfPlace(false, false, 0.5, 0);
+        env.c = lastCurve.position(t);
+        env.angle = lastCurve.angle(t) + rot;
+        env.twocellmodmapobject.toDropShape(context);
+      }
+      
+      env.c = c;
+      env.angle = angle;
+    }
+  });
+  
+  AST.Command.Twocell.Arrow.WithOrientation.Augment({
+    toUpperTipsShape: function (context) {
+      switch (this.tok) {
+        case '':
+        case '^':
+        case '_':
+        case '=':
+        case '\\omit':
+        case "'":
+          this.toTipsShape(context, false, false);
+          break;
+        case '`':
+          this.toTipsShape(context, true, false);
+          break;
+        case '"':
+          this.toTipsShape(context, false, true);
+          break;
+        case '!':
+          break;
+      }
+    },
+    toLowerTipsShape: function (context) {
+      switch (this.tok) {
+        case '':
+        case '^':
+        case '_':
+        case '=':
+        case '\\omit':
+        case '`':
+          this.toTipsShape(context, false, false);
+          break;
+        case "'":
+          this.toTipsShape(context, true, false);
+          break;
+        case '"':
+          this.toTipsShape(context, false, true);
+          break;
+        case '!':
+          break;
+      }
+    },
+    toArrowShape: function(context, labelOrigin) {
+      var env = context.env;
+      var c = env.c;
+      switch (this.tok) {
+        case '^':
+          var angle = env.angle;
+          env.angle = angle + Math.PI;
+          env.twocellarrowobject.toDropShape(context);
+          env.c = xypic.Frame.Point(
+            c.x + AST.xypic.lineElementLength * Math.cos(angle - Math.PI / 2),
+            c.y + AST.xypic.lineElementLength * Math.sin(angle - Math.PI / 2)
+          );
+          this.labelObject.toDropShape(context);
+          env.angle = angle;
+          break;
+        case '':
+        case '_':
+          var angle = env.angle;
+          env.twocellarrowobject.toDropShape(context);
+          env.c = xypic.Frame.Point(
+            c.x + AST.xypic.lineElementLength * Math.cos(angle + Math.PI / 2),
+            c.y + AST.xypic.lineElementLength * Math.sin(angle + Math.PI / 2)
+          );
+          this.labelObject.toDropShape(context);
+          break;
+        case '=':
+          var angle = env.angle;
+          var shape = xypic.Shape.TwocellEqualityArrowheadShape(env.c, env.angle);
+          context.appendShapeToFront(shape);
+          env.c = xypic.Frame.Point(
+            c.x + AST.xypic.lineElementLength * Math.cos(angle + Math.PI / 2),
+            c.y + AST.xypic.lineElementLength * Math.sin(angle + Math.PI / 2)
+          );
+          this.labelObject.toDropShape(context);
+          break;
+        default:
+          this.labelObject.toDropShape(context);
+          break;
+      }
+      env.c = c;
+    }
+  });
+  
+  AST.Command.Twocell.Arrow.WithPosition.Augment({
+    toUpperTipsShape: function (context) {
+      this.toTipsShape(context, false, false);
+    },
+    toLowerTipsShape: function (context) {
+      this.toTipsShape(context, false, false);
+    },
+    toArrowShape: function(context, labelOrigin) {
+      var env = context.env;
+      var c = env.c;
+      var angle = env.angle;
+      var arrowPos;
+      var nudge = this.nudge;
+      if (nudge.isOmit) {
+        arrowPos = c;
+      } else {
+        var offset = nudge.number * AST.xypic.lineElementLength;
+        arrowPos = xypic.Frame.Point(
+          labelOrigin.x + offset * Math.cos(angle),
+          labelOrigin.y + offset * Math.sin(angle)
+        );
+      }
+      
+      env.c = arrowPos;
+      env.twocellarrowobject.toDropShape(context);
+      if (!nudge.isOmit) {
+        env.c = xypic.Frame.Point(
+          arrowPos.x + AST.xypic.lineElementLength * Math.cos(angle + Math.PI / 2),
+          arrowPos.y + AST.xypic.lineElementLength * Math.sin(angle + Math.PI / 2)
+        );
+        this.labelObject.toDropShape(context);
+      }
+      env.c = c;
     }
   });
   
