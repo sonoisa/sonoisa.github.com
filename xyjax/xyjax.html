@@ -2169,7 +2169,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201209301319" changecount="69">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201210030840" changecount="81">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
 ** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
@@ -2178,11 +2178,8 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 
 * Implement the kernel (@@almost done@@)
 ** --Positions-- (@@done@@)
-*** NOTE: &lt;corner&gt; A does not work.
 ** Objects (@@almost done@@)
-*** TODO: implements below.
-**** Restore original reference point
-**** Hidden object
+*** TODO: implements Hidden object modifier.
 ** --Decorations-- (@@done@@)
 *** @@NOTE@@: TeX commands, xyverbose, xytracing, xyquiet, xycompile, xycompileto does not work.
 
@@ -2193,12 +2190,12 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 *** --Constructed tips-- (@@done@@)
 ** --Circle segments-- (@@done@@)
 ** --Text-- (@@done@@)
+*** NOTE: the &lt;width&gt; option of the \txt does not work.
 
 * Implement extensions
 ** Curve and Spline extension
-*** --Curved connections-- (@@almost done@@)
-**** todo: implement curve-options
-**** --fix wrong layout bug: intersection of lines/curves-- (@@almost done@@)
+*** Curved connections (@@almost done@@)
+**** TODO: implement curve-options
 *** Circles and Ellipses
 *** Quadratic splines
 ** --Frames and Bracket extension-- (@@done@@)
@@ -2214,11 +2211,11 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 ** Import graphics extension
 
 * Implement features
-** --Arrow and Path feature-- (@@almost done@@)
+** Arrow and Path feature (@@almost done@@)
 *** --Paths-- (@@done@@)
-*** --Arrows-- (@@almost done@@)
+*** Arrows (@@almost done@@)
 **** TODO: implements @!.
-** --Two-cell feature-- (@@almost done@@)
+** Two-cell feature (@@almost done@@)
 *** TODO: implements \xtwocell's &lt;displace&gt;, \modmapobject{}.
 *** NOTE: \modmapobject, \twocellhead, \twocelltail, \arrowobject, \curveobject, \uppercurveobject, \lowercurveobject, \twocellstyle, \UseTwocells, \UseHalfTwocells, \UseCompositeMaps, \UseAllTwocells
 ** --Matrix feature-- (@@done@@)
@@ -2297,7 +2294,7 @@ U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
 * Unsupported Browsers: Internet Explorer 8 or lower, etc...
 </pre>
 </div>
-<div title="XymatrixFeature" creator="isao" modifier="isao" created="201108060725" modified="201209181141" tags="Sample" changecount="35">
+<div title="XymatrixFeature" creator="isao" modifier="isao" created="201108060725" modified="201210030829" tags="Sample" changecount="37">
 <pre>\[
 \begin{xy}
 \xymatrix{
@@ -2332,6 +2329,20 @@ U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
     \ar `r[d]+/r3pc/ `[d]+/d2pc/ `[uu]+/l3pc/ `[uu] [uu]
   \restore \\
 1
+}
+\end{xy}
+\]
+\[
+\begin{xy}
+\xymatrix {
+*+!!A{c} \ar[r] \ar[d] &amp; 
+*+!!A{a\frac{x}{y}} \ar[r] \ar[d] \ar[ld] &amp; 
+*+!!A{\underline{\underline{g}}} \ar[r] \ar[d] \ar[ld] &amp; 
+*+!!A{\hat{\hat{\overline{\overline{h^2}}}}} \ar[d] \ar[ld] \\
+    {c} \ar[r] &amp; 
+    {a\frac{x}{y}} \ar[r] &amp; 
+    {\underline{\underline{g}}} \ar[r] &amp; 
+    {\hat{\hat{\overline{\overline{h^2}}}}} \\
 }
 \end{xy}
 \]
@@ -2371,6 +2382,20 @@ U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
     \ar `r[d]+/r3pc/ `[d]+/d2pc/ `[uu]+/l3pc/ `[uu] [uu]
   \restore \\
 1
+}
+\end{xy}
+}}}
+{{{
+\begin{xy}
+\xymatrix {
+*+!!A{c} \ar[r] \ar[d] &amp; 
+*+!!A{a\frac{x}{y}} \ar[r] \ar[d] \ar[ld] &amp; 
+*+!!A{\underline{\underline{g}}} \ar[r] \ar[d] \ar[ld] &amp; 
+*+!!A{\hat{\hat{\overline{\overline{h^2}}}}} \ar[d] \ar[ld] \\
+    {c} \ar[r] &amp; 
+    {a\frac{x}{y}} \ar[r] &amp; 
+    {\underline{\underline{g}}} \ar[r] &amp; 
+    {\hat{\hat{\overline{\overline{h^2}}}}} \\
 }
 \end{xy}
 }}}</pre>
