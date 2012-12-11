@@ -1,52 +1,95 @@
-# MathJax
+# XyJax
+ -- Xy-pic extension for MathJax --
 
-## Beautiful math in all browsers
+----
+XyJax is a almost Xy-pic compatible language extension for MathJax.
 
-MathJax is an open-source JavaScript display engine for LaTeX, MathML, and
-AsciiMath notation that works in all modern browsers.  It was designed with
-the goal of consolidating the recent advances in web technologies into a
-single, definitive, math-on-the-web platform supporting the major browsers
-and operating systems.  It requires no setup on the part of the user (no
-plugins to download or software to install), so the page author can write
-web documents that include mathematics and be confident that users will be
-able to view it naturally and easily.  Simply include MathJax and some
-mathematics in a web page, and MathJax does the rest.
+This extension enable us to draw various graphs and diagrams.
 
-Some of the main features of MathJax include:
+See http://sonoisa.github.com/xyjax/xyjax.html for more details. And origins
 
-- High-quality display of LaTeX, MathML, and AsciiMath notation in HTML pages
+- MathJax: http://www.mathjax.org/
+- Xy-pic: http://www.tug.org/applications/Xy-pic/
 
-- Supported in most browsers with no plug-ins, extra fonts, or special
-  setup for the reader
-
-- Easy for authors, flexible for publishers, extensible for developers
-
-- Supports math accessibility, cut-and-paste interoperability, and other
-  advanced functionality
-
-- Powerful API for integration with other web applications
-
-See <http://www.mathjax.org/> for additional details.
+This software is under development, so this release is beta-quality.
 
 
 ## Installation and Usage
 
-The MathJax installation and usage documentation is available in the
-`docs/html` directory of the MathJax distribution (see
-`docs/html/index.html` for the starting point).  The documents are also
-available on the MathJax web site on line at <http://www.mathjax.org/resources/docs/>.
+1. Download MathJax source code.
+ - Go to the MathJax download site: http://www.mathjax.org/download/
+ - Download MathJax source code (ver. >= 2.1).
+ - Extract the MathJax source code to a directory (referred to as [MathJax dir]). e.g. 
+ 
+   >     $ unzip mathjax-MathJax-v2.1-xxxx -d ~/work
+   
+ In this case, [MaxJax dir] = ~/work/mathjax-MathJax-v2.1-xxxx
+ 
+2. Download XyJax source code.
+ - Go to the XyJax download site (this page).
+ - Click the Downloads button on the upper right side, and click Download zip or tar.gz button.
+ - Extract the downloaded file to a directory (referred to as [XyJax dir]). e.g.
 
+   >     $ unzip  sonoisa-XyJax-xxxxx -d ~/work
+   
+ In this case, [XyJax dir] = ~/work/sonoisa-XyJax-xxxxx
+ 
+3. Move the XyJax files into the MathJax directory.
+ - [XyJax dir]/extensions/fp.js &rarr; [MathJax dir]/extensions/fp.js
+ - [XyJax dir]/extensions/TeX/xypic.js &rarr; [MathJax dir]/extensions/TeX/xypic.js
+ - [XyJax dir]/test/sample-xyjax.html &rarr; [MathJax dir]/test/sample-xyjax.html
+   
+   eg.
+   >     $ cp ~/work/sonoisa-XyJax-xxxxx/extensions/fp.js ~/work/mathjax-MathJax-v2.1-xxxx/extensions/
+   >     $ cp ~/work/sonoisa-XyJax-xxxxx/extensions/TeX/xypic.js ~/work/mathjax-MathJax-v2.1-xxxx/extensions/TeX/
+   >     $ cp ~/work/sonoisa-XyJax-xxxxx/test/sample-xyjax.html ~/work/mathjax-MathJax-v2.1-xxxx/test/
+   
+   ![moved files](http://sonoisa.github.com/xyjax/xyjax_images/Moved_XyJax_files.png)
+   
+4. Open [MathJax dir]/test/sample-xyjax.html with Firefox/Safari/Chrome.
+ + If XyJax works, You can see so-called commutative diagram like this:
+ 
+   ![commutative diagram](http://sonoisa.github.com/xyjax/xyjax_images/CD2.png)
 
-## Community
+5. Install MathJax on your own server using the source code you created in step 3.
+ - Follow the local installation instructions: http://docs.mathjax.org/en/latest/installation.html
 
-The main MathJax website is <http://www.mathjax.org>, and it includes
-announcements and other important information.  MathJax is maintained and
-distributed on GitHub at <http://github.com/mathjax/MathJax>.  A user forum
-for asking questions and getting assistance is hosted at Google, and the
-bug tracker is hosted at GitHub:
+6. Use XyJax on your own site.
+ + like the configuration of the test/sample-xy.jax, load MathJax.js and fp.js, xypic.js within pages on your site.
 
-Bug tracker:         <https://github.com/mathjax/MathJax/issues>  
-MathJax-Users Group: <http://groups.google.com/group/mathjax-users>
+ >     <script type="text/x-mathjax-config>
+ >     MathJax.Hub.Config({
+ >       extensions: ["tex2jax.js","fp.js"],
+ >       //                         ^^^^^load fp.js
+ >       jax: ["input/TeX","output/HTML-CSS"],
+ >       "HTML-CSS": {
+ >         styles: {".MathJax_Preview": {visibility: "hidden"}}
+ >       },
+ >       tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]},
+ >       TeX: {extensions: ["xypic.js", "AMSmath.js","AMSsymbols.js"]}
+ >       //                  ^^^^^^^^load xypic.js
+ >     });
+ >     </script>
+ >     <script type="text/javascript" src="../MathJax.js"></script>
 
-Before reporting a bug, please check that it has not already been reported.
-Also, please use the bug tracker for reporting bugs rather than the help forum.
+## Present Limitation
+
+- Supported Browsers:
+ - Firefox
+ - Safari
+ - Chrome
+ - Opera
+ - Internet Explorer 9 (IE9 Standards Mode only)
+- Supported Math Renderer:
+ - HTML-CSS
+ - SVG (MathJax 2.1 or later required)
+
+## Current Implementation Status
+
+- See http://sonoisa.github.com/xyjax/xyjax.html#ToDo
+
+## Contact
+
+If you have any questions about XyJax, please let me know.
+
+- e-mail: Isao Sonobe <sonoisa@gmail.com>

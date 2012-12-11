@@ -886,8 +886,8 @@ Source code:
 [[Samples]]
 </pre>
 </div>
-<div title="Download" creator="isao" modifier="isao" created="201108081329" modified="201108111426" changecount="2">
-<pre>See https://github.com/sonoisa/XyJax
+<div title="Download" creator="isao" modifier="isao" created="201108081329" modified="201212110829" changecount="3">
+<pre>Download from https://github.com/sonoisa/XyJax
 </pre>
 </div>
 <div title="FlexibleRuler" creator="isao" modifier="isao" created="201108061605" modified="201108211013" tags="Sample" changecount="17">
@@ -1018,42 +1018,8 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="HowToInstall" creator="isao" modifier="isao" created="201108111428" modified="201208120631" changecount="38">
-<pre># Download MathJax source code.
-** Go to the MathJax download site: http://www.mathjax.org/download/
-** Download MathJax source code (ver. &gt;= 2.0).
-** Extract the MathJax source code to a directory (referred to as [MathJax dir]).
-# Download XyJax's source code.
-** Go to the XyJax download site: https://github.com/sonoisa/XyJax
-** Click the Downloads button on the upper right side, and click Download zip (or tar.gz) button.
-** Extract the downloaded zip or tar.gz file to a directory (referred to as [XyJax dir]).
-# Move the XyJax files into the MathJax directory.
-** [XyJax dir]/extensions/fp.js &amp;rarr; [MathJax dir]/extensions/fp.js
-** [XyJax dir]/extensions/TeX/xypic.js &amp;rarr; [MathJax dir]/extensions/TeX/xypic.js
-** [XyJax dir]/test/sample-xyjax.html &amp;rarr; [MathJax dir]/test/sample-xyjax.html
-# Open [MathJax dir]/test/sample-xyjax.html with Firefox/Safari/Chrome.
-** You can see so-called commutative diagram, if XyJax works.
-# Install MathJax on your own server using the source code you created in step 3.
-** Follow the local installation instructions: http://www.mathjax.org/docs/2.0/installation.html
-# Use XyJax on your own site.
-** like the configuration of the test/sample-xy.jax (and the following code), load unpacked/MathJax.js and fp.js, xypic.js within pages on your site.
-
-{{{
-&lt;script type=&quot;text/x-mathjax-config&quot;&gt;
-  MathJax.Hub.Config({
-    extensions: [&quot;tex2jax.js&quot;,&quot;fp.js&quot;],
-    //                         ^^^^^load fp.js
-    jax: [&quot;input/TeX&quot;,&quot;output/HTML-CSS&quot;],
-    &quot;HTML-CSS&quot;: {
-      styles: {&quot;.MathJax_Preview&quot;: {visibility: &quot;hidden&quot;}}
-    },
-    tex2jax: {inlineMath: [[&quot;$&quot;,&quot;$&quot;],[&quot;\\(&quot;,&quot;\\)&quot;]]},
-    TeX: {extensions: [&quot;xypic.js&quot;,&quot;AMSmath.js&quot;,&quot;AMSsymbols.js&quot;]}
-    //                  ^^^^^^^^load xypic.js
-  });
-&lt;/script&gt;
-&lt;script type=&quot;text/javascript&quot; src=&quot;../MathJax.js&quot;&gt;&lt;/script&gt;
-}}}
+<div title="HowToInstall" creator="isao" modifier="isao" created="201108111428" modified="201212110829" changecount="41">
+<pre>See https://github.com/sonoisa/XyJax/blob/master/README.md
 </pre>
 </div>
 <div title="Intersection" creator="isao" modifier="isao" created="201108071136" modified="201108271153" tags="Sample" changecount="27">
@@ -1176,11 +1142,11 @@ Source code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="License" creator="isao" modifier="isao" created="201108061803" modified="201108061819" changecount="7">
+<div title="License" creator="isao" modifier="isao" created="201108061803" modified="201212110832" changecount="8">
 <pre>You can redistribute the XyJax and/or modify it under the terms of the Apache License, Version 2.0. 
 
 {{{
-Copyright (c) 2011 Isao Sonobe &lt;sonoisa@gmail.com&gt;
+Copyright (c) 2011-2012 Isao Sonobe &lt;sonoisa@gmail.com&gt;
 
 Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
 you may not use this file except in compliance with the License.
@@ -1381,7 +1347,7 @@ Source Code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="PluginMathJax" modifier="isao" created="201009232141" modified="201209181158" tags="systemConfig" changecount="37" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
+<div title="PluginMathJax" modifier="isao" created="201009232141" modified="201212110836" tags="systemConfig" changecount="40" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
 <pre>/***
 |''Name''|PluginMathJax|
 |''Description''|Displays TeX math using MathJax|
@@ -1441,6 +1407,11 @@ if(!version.extensions.PluginMathJax) {
             'extensions: [&quot;tex2jax.js&quot;,&quot;fp.js&quot;],' +
             'TeX: { extensions: [&quot;xypic.js&quot;,&quot;AMSmath.js&quot;,&quot;AMSsymbols.js&quot;] },' +
             '&quot;HTML-CSS&quot;: {' +
+                'styles: {&quot;.MathJax_Preview&quot;: {visibility: &quot;hidden&quot;}},' +
+                'scale: 115' +
+                '},' +
+            '&quot;SVG&quot;: {' +
+                'styles: {&quot;.MathJax_Preview&quot;: {visibility: &quot;hidden&quot;}},' +
                 'scale: 115' +
                 '},' +
             &quot;tex2jax: {inlineMath: [['$','$']]}&quot; +
@@ -2199,10 +2170,11 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201211121321" changecount="83">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201212110819" changecount="84">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
-** support [[SVG Output Jax|https://sites.google.com/site/mathjaxproject/design-documents/mathjax-1-1-specification/mathjax-1-2-specification]].
+** --support HTML-CSS Output Jax.-- (@@done@@)
+** --support SVG Output Jax (MathJax 2.1 or later required).-- (@@done@@)
 ** --support comments.-- (@@done@@)
 ** support user-defined macros.
 
@@ -2293,10 +2265,10 @@ Source code:
 <pre>&gt; Xy-pic is a package for typesetting graphs and diagrams using the principle of &quot;logical composition of visual components.&quot;
 Please visit [[Xy-pic's home page|http://www.tug.org/applications/Xy-pic/]]</pre>
 </div>
-<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201209181139" changecount="114">
+<div title="XyJax" creator="isao" modifier="isao" created="201108061630" modified="201212110821" changecount="118">
 <pre>!About XyJax
 XyJax is a almost [[Xy-pic]] compatible package for MathJax.
-This software is under development, so this release is alpha-quality (often buggy).
+This software is under development, so this release is beta-quality.
 
 XyJax enable us to draw diagrams like the following figure, so-called commutative diagram.
 \[
@@ -2321,8 +2293,10 @@ U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
 
 !Limitation
 * Supported Browsers: Firefox, Safari, Chrome, Opera, Internet Explorer 9 (IE9 Standards Mode only)
-* Unsupported Browsers: Internet Explorer 8 or lower, etc...
-</pre>
+* Supported Math Renderer: HTML-CSS, SVG (MathJax 2.1 or later required)
+
+!Current Implementation Status
+* See ToDo</pre>
 </div>
 <div title="XymatrixFeature" creator="isao" modifier="isao" created="201108060725" modified="201210200116" tags="Sample" changecount="41">
 <pre>\[
