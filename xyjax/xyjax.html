@@ -2170,7 +2170,7 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 /*}}}*/
 </pre>
 </div>
-<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201212110819" changecount="84">
+<div title="ToDo" creator="isao" modifier="isao" created="201108061802" modified="201302101826" changecount="85">
 <pre>* general
 ** --design Xy-pic domain model-- (@@done@@)
 ** --support HTML-CSS Output Jax.-- (@@done@@)
@@ -2210,7 +2210,10 @@ table.listView th, table.listView td, table.listView tr {padding:0px 3px 0px 3px
 ** Color extension
 *** --SVG colors-- (@@done@@)
 *** Crayola colors
-** Import graphics extension
+** --Import graphics extension-- (@@done@@)
+*** NOTE: Limitations
+**** the \includegraphics command must be directly written in the last argument of \xyimport.
+**** the width and height attributes of the \includegraphics are mandatory (and only supported).
 
 * Implement features
 ** Arrow and Path feature (@@almost done@@)
@@ -2297,6 +2300,48 @@ U \ar@/_/[ddr]_y \ar@{.&gt;}[dr]|{\langle x,y \rangle} \ar@/^/[drr]^x \\
 
 !Current Implementation Status
 * See ToDo</pre>
+</div>
+<div title="XyimportExtension" creator="isao" modifier="isao" created="201302101818" modified="201302101831" tags="Sample" changecount="5">
+<pre>\[
+\begin{xy}
+\xyimport(3.7, 3.7)(1.4, 1.4){\includegraphics[width=15em, height=15em]{./xyjax_images/ellip.png}}
+,!D+&lt;2pc, -1pc&gt;*+!U\txt{Rathinal points on the elliptic curve: $x^3+y^3=7$.}
+,(1,0)*+!U{1},
+,(-1,0)*+!U{-1}
+,(0,1)*+!R{1},
+,(0,-1)*+!R{-1}
+,(2,-1)*+!RU{P}
+,(-1,2)*+!RU{-P}
+,(1.3333,1.6667)*+!UR{-2P}
+,(1.6667,1.3333)*!DL{\;2P}
+,(-.5,1.9)*++!DL{3P}
+,(1.9,-.5)*!DL{\;-3P}
+,(-1,2.3)*+++!D{\infty}*=0{},{\ar+(-.2,.2)}
+,(.5,2.3)*+++!D{\infty}*=0{},{\ar+(-.2,.2)}
+,(2.3,-1)*+++!L{\infty}*=0{},{\ar+(.2,-.2)}
+\end{xy}
+\]
+
+Source Code:
+{{{
+\begin{xy}
+\xyimport(3.7, 3.7)(1.4, 1.4){\includegraphics[width=15em, height=15em]{./xyjax_images/ellip.png}}
+,!D+&lt;2pc, -1pc&gt;*+!U\txt{Rathinal points on the elliptic curve: $x^3+y^3=7$.}
+,(1,0)*+!U{1},
+,(-1,0)*+!U{-1}
+,(0,1)*+!R{1},
+,(0,-1)*+!R{-1}
+,(2,-1)*+!RU{P}
+,(-1,2)*+!RU{-P}
+,(1.3333,1.6667)*+!UR{-2P}
+,(1.6667,1.3333)*!DL{\;2P}
+,(-.5,1.9)*++!DL{3P}
+,(1.9,-.5)*!DL{\;-3P}
+,(-1,2.3)*+++!D{\infty}*=0{},{\ar+(-.2,.2)}
+,(.5,2.3)*+++!D{\infty}*=0{},{\ar+(-.2,.2)}
+,(2.3,-1)*+++!L{\infty}*=0{},{\ar+(.2,-.2)}
+\end{xy}
+}}}</pre>
 </div>
 <div title="XymatrixFeature" creator="isao" modifier="isao" created="201108060725" modified="201210200116" tags="Sample" changecount="41">
 <pre>\[
