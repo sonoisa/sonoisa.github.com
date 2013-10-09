@@ -235,11 +235,6 @@
     text-transform: none;
 }
 .style_3 {
-    color: rgb(169, 169, 169);
-    line-height: 23px;
-    opacity: 1.00;
-}
-.style_4 {
     color: rgb(170, 170, 170);
     line-height: 23px;
     opacity: 1.00;
@@ -397,7 +392,7 @@
     background: transparent;
     opacity: 1.00;
 }
-.style_External_376_625 {
+.style_External_376_535 {
     bottom: 0px;
     position: relative;
     width: 376px;
@@ -456,11 +451,6 @@
     position: absolute;
     width: 390px;
 }
-.Normal_External_376_625 {
-    bottom: 0px;
-    position: absolute;
-    width: 376px;
-}
 .Normal_External_390_67 {
     bottom: 0px;
     position: absolute;
@@ -470,6 +460,11 @@
     bottom: 0px;
     position: absolute;
     width: 390px;
+}
+.Normal_External_376_535 {
+    bottom: 0px;
+    position: absolute;
+    width: 376px;
 }
 .Normal_External_390_24 {
     bottom: 0px;

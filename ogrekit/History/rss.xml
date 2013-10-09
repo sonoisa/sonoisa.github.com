@@ -6,6 +6,13 @@
     <description> </description>
     <generator>iWeb 3.0.4</generator>
     <item>
+      <title>正規表現ライブラリ変更</title>
+      <link>http://sonoisa.github.com/ogrekit/ogrekit/History/entori/2013/10/8_zheng_gui_biao_xianraiburari_bian_geng.html</link>
+      <guid isPermaLink="false">2f7d008b-5b5c-4168-b328-a9f94fb72329</guid>
+      <pubDate>Tue, 8 Oct 2013 22:27:16 +0900</pubDate>
+      <description>•	 Mac OS 10.6以降用の正規表現ライブラリを鬼車から鬼雲に変更しました。</description>
+    </item>
+    <item>
       <title>Likeボタン追加</title>
       <link>http://sonoisa.github.com/ogrekit/ogrekit/History/entori/2011/4/5_Likebotan_zhui_jia.html</link>
       <guid isPermaLink="false">c242b7ef-0eb4-40ec-ae3c-d2977455b5ab</guid>
