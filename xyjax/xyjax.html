@@ -1347,7 +1347,7 @@ Source Code:
 \end{xy}
 }}}</pre>
 </div>
-<div title="PluginMathJax" modifier="isao" created="201009232141" modified="201212110836" tags="systemConfig" changecount="40" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
+<div title="PluginMathJax" modifier="YourName" created="201009232141" modified="201403090747" tags="systemConfig" changecount="42" server.type="file" server.host="http://www.almapater.org/courses/mat-521-001-2011-spring/mat-521-001-2011-spring.html" server.page.revision="201012021914">
 <pre>/***
 |''Name''|PluginMathJax|
 |''Description''|Displays TeX math using MathJax|
@@ -1400,12 +1400,12 @@ if(!version.extensions.PluginMathJax) {
             mjscript.type = &quot;text/javascript&quot;;
             
             // ***** Use the location of your MathJax! ***** :
-            mjscript.src = &quot;MathJax.js?config=TeX-AMS_HTML&quot;;
+            mjscript.src = &quot;http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML&quot;;
             
             var mjconfig = 'MathJax.Hub.Config({' +
             'jax: [&quot;input/TeX&quot;,&quot;output/HTML-CSS&quot;],' +
-            'extensions: [&quot;tex2jax.js&quot;,&quot;fp.js&quot;],' +
-            'TeX: { extensions: [&quot;xypic.js&quot;,&quot;AMSmath.js&quot;,&quot;AMSsymbols.js&quot;] },' +
+            'extensions: [&quot;tex2jax.js&quot;,&quot;http://sonoisa.github.io/xyjax_ext/fp.js&quot;],' +
+            'TeX: { extensions: [&quot;AMSmath.js&quot;,&quot;AMSsymbols.js&quot;,&quot;http://sonoisa.github.io/xyjax_ext/xypic.js&quot;] },' +
             '&quot;HTML-CSS&quot;: {' +
                 'styles: {&quot;.MathJax_Preview&quot;: {visibility: &quot;hidden&quot;}},' +
                 'scale: 115' +
