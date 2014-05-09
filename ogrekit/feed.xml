@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
  <id>urn:iweb:B81B4CD0-5472-48C5-92A4-81387AFD4DCB</id>
  <title>Page list Atom feed</title>
- <updated>2014-05-06T20:37:01+09:00</updated>
+ <updated>2014-05-09T23:08:14+09:00</updated>
  <link rel="self" href="feed.xml"/>
  <generator>iWeb</generator>
  <author>
@@ -14,7 +14,7 @@
   <title xmlns="urn:iweb:">About</title>
   <in-navbar xmlns="urn:iweb:">9EC1B405-5FD7-4251-8A75-1469738B79CD</in-navbar>
   <link rel="alternate" href="About.html"/>
-  <updated>2014-05-06T20:37:01.001+09:00</updated>
+  <updated>2014-05-09T23:08:14.001+09:00</updated>
   <content>About</content>
  </entry>
  <entry>
@@ -23,7 +23,7 @@
   <title xmlns="urn:iweb:">About (English)</title>
   <in-navbar xmlns="urn:iweb:">34311034-A1B6-4A48-833E-40C17C235CBD</in-navbar>
   <link rel="alternate" href="About_%28English%29.html"/>
-  <updated>2014-05-06T20:37:01.002+09:00</updated>
+  <updated>2014-05-09T23:08:14.002+09:00</updated>
   <content>About (English)</content>
  </entry>
  <entry>
@@ -32,7 +32,7 @@
   <title xmlns="urn:iweb:">History</title>
   <in-navbar xmlns="urn:iweb:">0EA0398E-14D3-4D31-92D5-FF9239CA2852</in-navbar>
   <link rel="alternate" href="History/History.html"/>
-  <updated>2014-05-06T20:37:01.003+09:00</updated>
+  <updated>2014-05-09T23:08:14.003+09:00</updated>
   <content>History</content>
  </entry>
  <entry>
@@ -41,7 +41,7 @@
   <title xmlns="urn:iweb:">HowToUse</title>
   <in-navbar xmlns="urn:iweb:">09052A57-DF81-4567-935A-4920513E9917</in-navbar>
   <link rel="alternate" href="HowToUse.html"/>
-  <updated>2014-05-06T20:37:01.004+09:00</updated>
+  <updated>2014-05-09T23:08:14.004+09:00</updated>
   <content>HowToUse</content>
  </entry>
  <entry>
@@ -50,7 +50,7 @@
   <title xmlns="urn:iweb:">FAQ</title>
   <in-navbar xmlns="urn:iweb:">A98E78D7-D609-4EDC-B83E-F08FA6706974</in-navbar>
   <link rel="alternate" href="FAQ.html"/>
-  <updated>2014-05-06T20:37:01.005+09:00</updated>
+  <updated>2014-05-09T23:08:14.005+09:00</updated>
   <content>FAQ</content>
  </entry>
  <entry>
@@ -59,7 +59,7 @@
   <title xmlns="urn:iweb:">Thanks</title>
   <in-navbar xmlns="urn:iweb:">C18E86CD-2224-4CBB-B835-D8E3DF44E688</in-navbar>
   <link rel="alternate" href="Thanks.html"/>
-  <updated>2014-05-06T20:37:01.006+09:00</updated>
+  <updated>2014-05-09T23:08:14.006+09:00</updated>
   <content>Thanks</content>
  </entry>
  <entry>
@@ -68,7 +68,7 @@
   <title xmlns="urn:iweb:">Downloads</title>
   <in-navbar xmlns="urn:iweb:">0E4DA2B8-BCDD-4DE8-84AE-869F1ED5CF01</in-navbar>
   <link rel="alternate" href="Downloads.html"/>
-  <updated>2014-05-06T20:37:01.007+09:00</updated>
+  <updated>2014-05-09T23:08:14.007+09:00</updated>
   <content>Downloads</content>
  </entry>
 </feed>
