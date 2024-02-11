@@ -205,6 +205,7 @@ def process_prompt(prompt, history, context, platform, endpoint, azure_deploymen
 		messages = []
 		for user_message, assistant_message in history:
 			if user_message is not None and assistant_message is not None:
+				user_message = user_message.replace("{context}", context)
 				messages.append({ "role": "user", "content": user_message })
 				messages.append({ "role": "assistant", "content": assistant_message })
 
@@ -226,6 +227,7 @@ def process_prompt(prompt, history, context, platform, endpoint, azure_deploymen
 					http_client=http_client
 				)
 
+		bot_response = ""
 		completion = openai_client.chat.completions.create(
 				messages=messages,
 				model=model_name,
@@ -238,7 +240,8 @@ def process_prompt(prompt, history, context, platform, endpoint, azure_deploymen
 			raise gr.Error(completion.error["message"])
 		else:
 			message = completion.choices[0].message
-			return message.content
+			bot_response += message.content
+			yield bot_response
 
 	except Exception as e:
 		if hasattr(e, "message"):
@@ -408,8 +411,11 @@ def main():
 						chatbot = gr.Chatbot(
 							CHAT_HISTORY,
 							elem_id="chatbot", render=False, height=500, show_copy_button=True,
-							render_markdown=False, likeable=False, layout="bubble",
+							sanitize_html=False, render_markdown=False, likeable=False, layout="bubble",
 							avatar_images=[None, Path("robot.png")])
+
+						chat_message_textbox = gr.Textbox(placeholder="Type a message...", 
+							render=False, container=False, scale=7)
 
 						chatbot.change(None, inputs=[chatbot, save_chat_history_to_url], outputs=None, 
 							# チャット履歴をクエリパラメータに保存する。
@@ -420,10 +426,8 @@ def main():
 
 						chat = gr.ChatInterface(process_prompt, 
 							title="Chat with your PDF", 
-							chatbot=chatbot,
-							textbox=gr.Textbox(
-								placeholder="Type a message...", 
-								render=False, container=False, scale=7), 
+							chatbot=chatbot, 
+							textbox=chat_message_textbox, 
 							additional_inputs=[context, platform, endpoint, azure_deployment, azure_api_version, api_key, model_name, max_tokens, temperature], 
 							examples=[['''制約条件に従い、以下の研究論文で提案されている技術や手法について要約してください。
 
